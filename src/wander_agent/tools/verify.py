@@ -168,43 +168,24 @@ async def verify_flight_route(origin: str, destination: str) -> dict:
         origin: IATA airport code
         destination: IATA airport code
     """
-    from ..utils.config import TRAVELPAYOUTS_TOKEN
-    from ..utils.http import get_client
+    from datetime import date, timedelta
+    from .flights import search_flights
 
-    if not TRAVELPAYOUTS_TOKEN:
-        return {
-            "origin": origin.upper(),
-            "destination": destination.upper(),
-            "route_exists": "unknown",
-            "note": "TRAVELPAYOUTS_TOKEN required.",
-        }
-
-    client = await get_client()
+    probe_date = (date.today() + timedelta(days=21)).isoformat()
     try:
-        resp = await client.get(
-            "https://api.travelpayouts.com/v1/prices/direct",
-            params={
-                "origin": origin.upper(),
-                "destination": destination.upper(),
-                "token": TRAVELPAYOUTS_TOKEN,
-            },
+        result = await search_flights(
+            origin=origin,
+            destination=destination,
+            departure_date=probe_date,
+            max_results=1,
         )
-        if resp.status_code != 200:
-            return {
-                "origin": origin.upper(),
-                "destination": destination.upper(),
-                "route_exists": "unknown",
-                "note": f"API returned {resp.status_code}",
-            }
-        data = resp.json()
-        has_route = bool(data.get("data"))
-
+        has_route = result.get("results_count", 0) > 0
         return {
             "origin": origin.upper(),
             "destination": destination.upper(),
             "route_exists": has_route,
-            "has_direct_flights": has_route,
-            "source": "travelpayouts",
+            "probe_date": probe_date,
+            "data_source": result.get("data_source", "unknown"),
         }
     except Exception as e:
         return {

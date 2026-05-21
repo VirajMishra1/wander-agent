@@ -134,8 +134,9 @@ async def get_travel_advisory(country: str) -> dict:
             4: "Do not travel - life-threatening risks",
         }
 
+        country_name = entry["country"]
         return {
-            "country": entry["country"],
+            "country": country_name,
             "country_code": entry["country_code"],
             "advisory_level": entry["advisory_level"],
             "advisory_label": entry["advisory_label"],
@@ -144,6 +145,12 @@ async def get_travel_advisory(country: str) -> dict:
             "official_url": entry["url"],
             "summary": entry["summary"],
             "source": "US State Department",
+            "suggest_web_search": [
+                f"{country_name} travel news this month",
+                f"{country_name} protests strikes 2026",
+                f"{country_name} visa requirements US passport 2026",
+                f"vaccinations required {country_name} CDC",
+            ],
         }
     except Exception as e:
         return {"error": str(e), "country": country}

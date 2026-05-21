@@ -152,11 +152,17 @@ async def score_destinations(
 
     valid.sort(key=lambda x: -x["scores"]["composite"])
 
+    winner = valid[0]["destination"] if valid else None
     return {
         "travel_period": {"start": travel_start, "end": travel_end},
         "weights": weight_map,
         "weather_preference": weather_pref,
         "ranked_destinations": valid,
-        "winner": valid[0]["destination"] if valid else None,
-        "tip": "Composite is weighted average. Adjust weights to match what matters most to you.",
+        "winner": winner,
+        "tip": "Composite is weighted average. Adjust weights to match what matters most.",
+        "suggest_web_search": [
+            f"why visit {winner} {travel_start[:7]}" if winner else "",
+            f"{winner} vs {valid[1]['destination']}" if len(valid) >= 2 else "",
+            f"best time of year for {winner}" if winner else "",
+        ],
     }

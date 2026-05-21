@@ -63,11 +63,23 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 mcp = FastMCP(
     "Wander Agent",
     instructions=(
-        "AI travel agent with two modes: (1) INSPIRATION - find destinations "
-        "by budget/interests when you don't know where to go; (2) PLANNING - "
-        "search flights/hotels/itineraries when you do. Includes travel advisories, "
-        "local events, cost-of-living comparison, multi-objective destination scoring, "
-        "and anti-hallucination verification. Powered by 100% free APIs."
+        "Travel agent with two modes: INSPIRATION (find destinations by budget) "
+        "and PLANNING (search specific flights/hotels/itineraries). Includes "
+        "advisories, events, cost-of-living, multi-objective scoring, verification. "
+        "All free APIs.\n\n"
+        "WHEN TO USE THESE TOOLS vs YOUR OWN WEB SEARCH:\n"
+        "- Use these tools for: flight prices, hotel rates, structured weather, "
+        "  cached advisories, deterministic scoring, place verification, "
+        "  cost-of-living lookups, multi-destination comparison.\n"
+        "- Use YOUR WEB SEARCH for: current mistake fares and flash deals, "
+        "  recent destination news (strikes/closures/protests), restaurant reviews "
+        "  and subjective recommendations, visa policy changes since 2025, "
+        "  local festivals not in Ticketmaster (Asia/LatAm coverage gap), "
+        "  trip-report blogs.\n"
+        "- Many tool outputs include a 'suggest_web_search' field with concrete "
+        "  query suggestions. Run them when present.\n"
+        "- Compose freely: pull structured data here, then web-search to "
+        "  enrich. Cross-check important claims with verify_place."
     ),
     lifespan=app_lifespan,
 )

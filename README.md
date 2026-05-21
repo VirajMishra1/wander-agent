@@ -27,8 +27,8 @@ There are 21 tools. They fall into four groups.
 
 ### Planning (you do)
 
-- `search_flights` — Travelpayouts primary, Kiwi Tequila fallback
-- `search_hotels` — Hotellook (Travelpayouts)
+- `search_flights` — **Google Flights data via the `fast_flights` library**. No API key needed for the primary path. Kiwi Tequila as fallback. Prices come back in your requested currency (auto-converted from whatever Google returns).
+- `search_hotels` — Hotellook (Travelpayouts). The only viable free hotel API; signup is two minutes with no approval.
 - `plan_itinerary` — orchestrates weather, activities, country info, and currency into a day-by-day plan
 - `optimize_budget` — flexible-date search for cheapest flight + hotel combination
 
@@ -51,10 +51,11 @@ These are the tools that don't exist anywhere else as MCP capabilities.
 
 ## Data sources
 
-Twelve APIs. Eight of them require no authentication at all. The other four have free tiers generous enough that you can use this seriously without paying anyone.
+Thirteen APIs. Nine require no authentication. The remaining four have free tiers generous enough for serious use.
 
 | Source | Purpose | Auth |
 |---|---|---|
+| **Google Flights** (via `fast_flights`) | **Flight search (primary)** | **none — scraper library** |
 | Open-Meteo | Live weather + historical climate | none |
 | Open-Meteo Geocoding | City → coordinates with population, timezone | none |
 | Frankfurter | Currency rates from the European Central Bank | none |
@@ -62,13 +63,26 @@ Twelve APIs. Eight of them require no authentication at all. The other four have
 | Wikidata SPARQL | Place verification | none |
 | US State Department RSS | Travel advisories | none |
 | Curated dataset | Cost of living | none (in-repo) |
-| Travelpayouts | Flights + hotels | free token |
-| Kiwi Tequila | Flight fallback | free sandbox |
+| Kiwi Tequila | Flight fallback + inspiration (anywhere search) | free sandbox |
+| Hotellook (Travelpayouts) | Hotels | free token, no approval |
 | OpenTripMap | Attractions and POIs | free key |
 | Foursquare | Secondary verification source | free 200k/month |
 | Ticketmaster Discovery | Local events | free 5k/day |
 
-For the bare minimum useful agent you only need the Travelpayouts token. Sign-up is two minutes with no approval process. Everything else is optional.
+**On Google Flights specifically.** Google killed the official QPX Express API in 2018 and never released a replacement. There is no public, free, official Google Flights API. The `fast_flights` Python library scrapes Google Flights' protobuf-encoded responses — it returns the actual flight inventory you'd see in the Google UI, including airlines, times, and prices. The trade-off: scrapers can break when Google changes their HTML. When that happens, this server automatically falls back to Kiwi Tequila, which is a stable real API.
+
+For the bare minimum you only need a Kiwi token (for inspiration tools) and a Travelpayouts token (for hotels). Both are free signups with no approval. Everything else is optional.
+
+## How Wander Agent composes with Claude's web search
+
+Wander Agent provides structured data. Claude has web search built in. They cover different domains and work better together than either alone.
+
+The server's instructions tell Claude when to use which. Many tool outputs also include a `suggest_web_search` field with concrete query suggestions Claude should run for the latest unstructured information.
+
+- **Use the tools for:** prices, weather, advisories, scoring, verification, cost-of-living. Anything where you want a deterministic, cached, machine-readable answer.
+- **Use web search for:** mistake fares, deal blogs, recent destination news, restaurant reviews, visa policy changes since the last data refresh, festivals not in Ticketmaster, trip reports.
+
+Example: `search_flights` returns JFK→LAX prices but also suggests Claude search for `"JFK to LAX mistake fares 2026-06"` and `"airline strikes affecting JFK LAX"`. The agent does the structured math; Claude fills in the live context.
 
 ## Setup
 

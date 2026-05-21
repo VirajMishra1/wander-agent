@@ -145,5 +145,12 @@ async def plan_itinerary(
         "weather_summary": results.get("weather", {}).get("summary"),
         "daily_plan": days,
         "total_activities_found": len(unique_activities),
-        "note": "This is structured data for the AI to build a narrative itinerary. Activities are real, verified places.",
+        "note": "Structured data for AI to build narrative itinerary. Activities are real.",
+        "suggest_web_search": [
+            f"best restaurants {destination} {(interests or 'food').split(',')[0].strip()} reddit",
+            f"{destination} {start_date[:7]} festivals events",
+            f"{destination} insider tips not tourist traps",
+            f"{destination} neighborhoods to stay travel blog",
+            f"things to know before visiting {destination} 2026",
+        ],
     }

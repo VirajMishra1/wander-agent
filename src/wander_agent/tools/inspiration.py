@@ -1,9 +1,9 @@
-"""Inspiration tools - find destinations based on budget, interests, or anywhere from origin."""
+"""Inspiration tools - find destinations by budget/interests using Kiwi 'anywhere' search."""
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 async def cheap_anywhere_from(
@@ -13,62 +13,93 @@ async def cheap_anywhere_from(
     max_results: int = 20,
     currency: str = "USD",
 ) -> dict:
-    """Find cheapest destinations from origin (Persona A: "where can I go?").
+    """Find cheapest destinations from origin airport.
 
-    Uses Travelpayouts' anywhere search. Returns ranked destinations
-    sorted by price, with cheapest dates if month specified.
+    Uses Kiwi Tequila's 'anywhere' search. Returns ranked destinations by price.
 
     Args:
         origin: IATA airport code (e.g., "JFK", "LAX")
-        month: YYYY-MM to constrain dates (e.g., "2026-08"). Omit for any time.
+        month: YYYY-MM to constrain dates (e.g., "2026-08"). Omit for any.
         max_price: Filter out destinations above this price
         max_results: Max destinations to return
         currency: USD, EUR, etc.
     """
-    from ..utils.config import TRAVELPAYOUTS_TOKEN, TRAVELPAYOUTS_MARKER
+    from ..utils.config import KIWI_API_KEY
     from ..utils.http import get_client
 
-    if not TRAVELPAYOUTS_TOKEN:
-        return {"error": "TRAVELPAYOUTS_TOKEN required for inspiration search. Sign up free at travelpayouts.com"}
+    if not KIWI_API_KEY:
+        return {
+            "error": "KIWI_API_KEY required for inspiration search.",
+            "hint": "Sign up free at https://tequila.kiwi.com for sandbox access.",
+        }
 
     client = await get_client()
-    params: dict = {
-        "origin": origin.upper(),
-        "currency": currency.lower(),
-        "limit": min(max_results * 2, 100),
-        "token": TRAVELPAYOUTS_TOKEN,
-        "sorting": "price",
-    }
+
+    # Build date range for Kiwi (DD/MM/YYYY)
     if month:
-        params["depart_date"] = month
-    if TRAVELPAYOUTS_MARKER:
-        params["marker"] = TRAVELPAYOUTS_MARKER
+        try:
+            year, mo = month.split("-")
+            month_start = datetime(int(year), int(mo), 1)
+            # Last day of month
+            next_mo = month_start.replace(day=28) + timedelta(days=4)
+            month_end = next_mo - timedelta(days=next_mo.day)
+        except Exception:
+            return {"error": f"Invalid month format '{month}'. Use YYYY-MM."}
+        date_from = month_start.strftime("%d/%m/%Y")
+        date_to = month_end.strftime("%d/%m/%Y")
+    else:
+        # Next 6 months
+        today = datetime.now() + timedelta(days=14)
+        date_from = today.strftime("%d/%m/%Y")
+        date_to = (today + timedelta(days=180)).strftime("%d/%m/%Y")
+
+    params: dict = {
+        "fly_from": origin.upper(),
+        "fly_to": "anywhere",
+        "date_from": date_from,
+        "date_to": date_to,
+        "curr": currency.upper(),
+        "limit": min(max_results * 3, 200),
+        "sort": "price",
+    }
+    if max_price:
+        params["price_to"] = int(max_price)
 
     try:
-        resp = await client.get("https://api.travelpayouts.com/v2/prices/latest", params=params)
+        resp = await client.get(
+            "https://api.tequila.kiwi.com/v2/search",
+            params=params,
+            headers={"apikey": KIWI_API_KEY},
+            timeout=30.0,
+        )
         if resp.status_code != 200:
-            return {"error": f"API returned {resp.status_code}", "details": resp.text[:200]}
+            return {"error": f"Kiwi API returned {resp.status_code}", "details": resp.text[:300]}
 
         data = resp.json()
         offers = data.get("data", [])
 
         destinations: dict = {}
         for o in offers:
-            dest = o.get("destination", "")
-            price = float(o.get("value", 0))
-            if max_price and price > max_price:
+            dest_code = o.get("flyTo", "")
+            dest_city = o.get("cityTo", "")
+            price = float(o.get("price", 0))
+            key = dest_code or dest_city
+            if not key:
                 continue
-            if dest not in destinations or destinations[dest]["price"] > price:
-                destinations[dest] = {
-                    "destination": dest,
-                    "origin": o.get("origin", origin.upper()),
+            if key not in destinations or destinations[key]["price"] > price:
+                destinations[key] = {
+                    "destination_airport": dest_code,
+                    "destination_city": dest_city,
+                    "destination_country": o.get("countryTo", {}).get("name", ""),
+                    "country_code": o.get("countryTo", {}).get("code", ""),
+                    "origin": origin.upper(),
                     "price": price,
                     "currency": currency.upper(),
-                    "departure_date": o.get("depart_date", ""),
-                    "return_date": o.get("return_date", ""),
-                    "transfers": o.get("number_of_changes", 0),
-                    "trip_class": o.get("trip_class", 0),
-                    "found_at": o.get("found_at", ""),
+                    "departure_date": o.get("local_departure", "")[:10],
+                    "return_date": o.get("local_arrival", "")[:10],
+                    "duration_hours": round(o.get("duration", {}).get("total", 0) / 3600, 1),
+                    "stops": max(len(o.get("route", [])) - 1, 0),
+                    "booking_url": o.get("deep_link", ""),
                 }
 
         results = sorted(destinations.values(), key=lambda x: x["price"])[:max_results]
@@ -80,7 +111,13 @@ async def cheap_anywhere_from(
             "results_count": len(results),
             "destinations": results,
             "cheapest": results[0] if results else None,
-            "tip": "Pass each destination to plan_itinerary or search_hotels for details.",
+            "currency": currency.upper(),
+            "data_source": "kiwi_tequila",
+            "tip": "Pass top destinations to plan_itinerary or score_destinations.",
+            "suggest_web_search": [
+                f"best places to visit from {origin.upper()} {month or 'this year'}",
+                f"hidden gem destinations under {currency.upper()} {int(max_price) if max_price else 1000}",
+            ],
         }
     except Exception as e:
         return {"error": str(e)}
@@ -98,29 +135,26 @@ async def find_destinations_by_budget(
     currency: str = "USD",
     max_results: int = 10,
 ) -> dict:
-    """Find destinations achievable within a total budget (Persona A killer feature).
+    """Find destinations achievable within a total trip budget.
 
-    Calculates: flight + hotel * nights, returns destinations under budget.
-    Optionally filters by interests and visa-free requirements.
+    Calculates flight + hotel * nights. Returns destinations under budget.
 
     Args:
         origin: Departure airport IATA code
-        total_budget: Total budget for trip (flights + hotels)
+        total_budget: Total budget for trip
         trip_length_days: Number of nights
-        departure_month: YYYY-MM (e.g., "2026-08") or omit for any
+        departure_month: YYYY-MM or omit for any
         travelers: Number of travelers
         interests: Comma-separated (e.g., "beach,food,history")
-        visa_free_only: Only include visa-free destinations
-        passport_country: Passport country code (e.g., "US") for visa filtering
+        visa_free_only: Only visa-free destinations (requires passport_country)
+        passport_country: ISO 2-letter code (e.g., "US")
         currency: USD, EUR, etc.
-        max_results: Max destinations to return
+        max_results: Max destinations
     """
     from .hotels import search_hotels
-    from .destination import geocode
 
-    # Step 1: get cheap flights anywhere
-    flight_budget_per_person = total_budget * 0.6 / travelers  # assume 60% flight budget
-    cheap_dests = await cheap_anywhere_from(
+    flight_budget_per_person = total_budget * 0.5 / travelers
+    cheap = await cheap_anywhere_from(
         origin=origin,
         month=departure_month,
         max_price=flight_budget_per_person,
@@ -128,42 +162,41 @@ async def find_destinations_by_budget(
         currency=currency,
     )
 
-    if cheap_dests.get("error") or not cheap_dests.get("destinations"):
+    if cheap.get("error") or not cheap.get("destinations"):
         return {
-            "error": cheap_dests.get("error", "No destinations found within flight budget"),
-            "hint": "Try increasing budget or removing month constraint",
+            "error": cheap.get("error", "No destinations under flight budget"),
+            "hint": "Try a larger budget or remove month constraint.",
         }
 
     affordable: list = []
-
-    # Step 2: for each cheap destination, estimate hotel cost
-    candidates = cheap_dests["destinations"][:max_results * 2]
+    candidates = cheap["destinations"][:max_results * 2]
 
     for dest in candidates[:max_results]:
-        dest_code = dest["destination"]
-        dep_date = dest.get("departure_date", "")
+        dest_city = dest.get("destination_city") or dest.get("destination_airport")
+        dep_date = dest.get("departure_date")
         if not dep_date:
             continue
         try:
-            dep_dt = datetime.fromisoformat(dep_date.replace("Z", "+00:00"))
+            dep_dt = datetime.strptime(dep_date, "%Y-%m-%d")
             check_in = dep_dt.strftime("%Y-%m-%d")
-            check_out = (dep_dt.replace(day=min(dep_dt.day + trip_length_days, 28))).strftime("%Y-%m-%d")
+            check_out = (dep_dt + timedelta(days=trip_length_days)).strftime("%Y-%m-%d")
         except Exception:
             continue
 
-        # Cheap hotel lookup
         hotels = await search_hotels(
-            city=dest_code, check_in=check_in, check_out=check_out,
+            city=dest_city, check_in=check_in, check_out=check_out,
             adults=travelers, max_results=3, currency=currency,
         )
-        cheapest_hotel = hotels.get("cheapest_price_per_night") or 80  # fallback assumption
-        hotel_total = cheapest_hotel * trip_length_days * (travelers / 2 + 0.5)  # rough rooms
+        cheapest_hotel = hotels.get("cheapest_price_per_night") or 80
+        hotel_total = cheapest_hotel * trip_length_days
         flight_total = dest["price"] * travelers
         grand_total = flight_total + hotel_total
 
         if grand_total <= total_budget:
             affordable.append({
-                "destination": dest_code,
+                "destination": dest_city,
+                "destination_airport": dest.get("destination_airport"),
+                "country": dest.get("destination_country"),
                 "flight_price_per_person": dest["price"],
                 "flight_total": flight_total,
                 "hotel_per_night": cheapest_hotel,
@@ -174,7 +207,7 @@ async def find_destinations_by_budget(
                 "return_date": check_out,
                 "trip_length_days": trip_length_days,
                 "budget_remaining": round(total_budget - grand_total, 2),
-                "transfers": dest.get("transfers", 0),
+                "stops": dest.get("stops", 0),
             })
 
     affordable.sort(key=lambda x: x["grand_total"])
@@ -187,7 +220,11 @@ async def find_destinations_by_budget(
         "travelers": travelers,
         "results_count": len(affordable),
         "destinations": affordable[:max_results],
-        "tip": "Use score_destinations on these results to rank by weather, safety, and cost-of-living.",
+        "tip": "Run score_destinations on these to rank by weather/safety/cost-of-living.",
+        "suggest_web_search": [
+            f"best destinations under {currency.upper()} {int(total_budget)} {departure_month or ''}",
+            f"travel deals from {origin.upper()} {departure_month or ''}",
+        ],
     }
 
 
@@ -199,14 +236,11 @@ async def compare_destinations(
     travelers: int = 1,
     currency: str = "USD",
 ) -> dict:
-    """Compare multiple destinations side-by-side for the same dates.
-
-    Pulls flight prices and hotel rates in parallel for each destination.
-    Perfect for "Paris vs Rome vs Barcelona for next month".
+    """Side-by-side cost comparison of multiple destinations.
 
     Args:
-        origin: Departure airport IATA code
-        destinations: Comma-separated destinations (e.g., "CDG,FCO,BCN" or "Paris,Rome,Barcelona")
+        origin: Departure IATA code
+        destinations: Comma-separated (e.g., "CDG,FCO,BCN" or "Paris,Rome,Barcelona")
         departure_date: YYYY-MM-DD
         return_date: YYYY-MM-DD
         travelers: Number of travelers
@@ -259,6 +293,12 @@ async def compare_destinations(
         "comparisons": results,
         "cheapest": results[0] if results else None,
         "most_expensive": results[-1] if results else None,
-        "savings_choosing_cheapest": round((results[-1]["total_cost"] or 0) - (results[0]["total_cost"] or 0), 2) if len(results) >= 2 else 0,
+        "savings_choosing_cheapest": round(
+            (results[-1]["total_cost"] or 0) - (results[0]["total_cost"] or 0), 2
+        ) if len(results) >= 2 else 0,
         "currency": currency.upper(),
+        "suggest_web_search": [
+            f"{' vs '.join(dest_list)} for travelers reddit",
+            f"best month to visit {dest_list[0]}",
+        ],
     }
