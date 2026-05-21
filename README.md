@@ -1,43 +1,187 @@
-# Wander AI: The Story Behind the Innovation
+# 🧭 Wander Agent
 
-## The Spark of Inspiration 🔥
-It all started with a simple yet frustrating experience—planning a trip. Scrolling through endless travel blogs, juggling multiple tabs for flights, hotels, and itineraries, and trying to fit everything into a budget felt overwhelming. Everyone loves traveling, but the planning process? Not so much. That’s when the idea hit: What if AI could handle the stress of planning, making travel seamless and personalized?
+> **The AI travel agent that does what no other open-source tool does.**
 
-## The Vision 🌍
-We envisioned Wander AI as more than just another travel app—it would be a smart, AI-powered travel assistant that understands your interests, budget, and preferences to craft the perfect trip. Whether you’re searching for a destination, need the best flights and hotels, or want a fully planned itinerary, Wander AI would handle it all.
+An MCP server with **20 tools** that turn Claude (or any MCP-compatible AI) into a world-class travel agent. Two modes: **Inspiration** (don't know where to go) and **Planning** (know where you're going). Plus differentiators nobody else ships.
 
-## From Idea to Execution 💡→💻
-With the hackathon as our battleground, we brought Wander AI to life. The challenge? Making AI truly intuitive for travelers. We broke it down into three seamless steps:
+**100% free APIs. No paid keys. No frontend. Just import and go.**
 
-### The AI Travel Assistant 🤖
-Using the Google Gemini API, we created a chatbot that helps users decide on a destination based on their interests. If they already have one in mind, the chatbot gathers budget and activity preferences to create a tailored itinerary.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![MCP](https://img.shields.io/badge/MCP-compatible-green.svg)](https://modelcontextprotocol.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### Flight & Hotel Finder ✈️🏨
-Once a destination is chosen, we scrape the Gemini API response to find the best flights and hotels using the Google Flights API & Google Hotels API/Serp AI.
+---
 
-### Itinerary Generator 📅
-Finally, based on the user’s duration and interests, Wander AI leverages the Gemini API again to generate a detailed, day-by-day itinerary.
+## What makes this different
 
-## The Tech That Powers the Magic 🛠️
-Building Wander AI required an efficient and scalable tech stack:
-- **Frontend:** React, HTML, CSS – for a clean and intuitive user interface.
-- **Backend:** Node.js, Python – to process API calls and handle data.
-- **APIs:** Google Gemini API, Google Flights API, Google Hotels API, Serp AI – for AI-powered recommendations and real-time travel data.
+Every other open-source travel agent is a Streamlit app or Next.js webapp. They're products. **Wander Agent is a capability** — add it to Claude/ChatGPT/Cursor and any AI becomes a travel agent.
 
-## Challenges & Breakthroughs ⚡
-Like any ambitious project, we faced hurdles:
-- Ensuring AI-generated responses were accurate and relevant. We fine-tuned prompts and handled JSON parsing efficiently.
-- Integrating multiple APIs smoothly. We optimized data retrieval to ensure real-time responses.
-- Creating an engaging and user-friendly experience. We focused on intuitive UI/UX design to make trip planning effortless.
+### Real use cases that nothing else handles:
 
-## The Future of Wander AI 🚀
-This is just the beginning. In the future, we aim to:
-- ✅ Add real-time price tracking for flights and hotels.
-- ✅ Integrate user accounts for personalized trip histories.
-- ✅ Offer AI-generated travel blogs and local experience suggestions.
-- ✅ Partner with travel companies to enhance recommendations.
+> 🎯 "I have $1500. Trip in March. Surprise me."
+> → `find_destinations_by_budget` calculates flight+hotel for 50+ destinations under $1500, ranks them.
 
-## Why Wander AI? 🌟
-Wander AI is more than a hackathon project—it’s a step toward the future of travel. By blending AI with human curiosity, we’re making trip planning stress-free, smart, and personalized.
+> 🎭 "Paris vs Rome vs Barcelona for next month — show me everything."
+> → `compare_destinations` returns flight+hotel costs for all three, side-by-side, ranked.
 
-The world is waiting. Let Wander AI take you there. ✈️🌍
+> 🌍 "Where should I go in July for warm weather, low crime, and music festivals?"
+> → `score_destinations` ranks by cost + weather + safety + events simultaneously.
+
+> 🎤 "Plan Tokyo in May. Also tell me if any of my favorite bands are playing then."
+> → `plan_itinerary` + `get_local_events` returns the trip plus concerts/shows during those exact dates.
+
+> 💰 "How far does $100/day actually go in Lisbon vs Tokyo vs Reykjavik?"
+> → `get_cost_of_living` returns budget breakdown for each city.
+
+> 🚨 "Is Egypt safe right now? What vaccinations do I need?"
+> → `get_travel_advisory` returns official government advisories + health requirements.
+
+> 📅 "When is the best time to visit Bali?"
+> → `best_month_to_visit` analyzes 5 years of historical climate data.
+
+> 🛡️ "AI suggested 'Restaurant Le Bernardin in Lyon' — does that actually exist?"
+> → `verify_place` cross-checks OpenStreetMap, Foursquare, and OpenTripMap.
+
+---
+
+## The 20 Tools
+
+### 🎲 Inspiration Mode (don't know where to go)
+| Tool | What it does |
+|------|--------------|
+| `find_destinations_by_budget` | "I have $X, where can I go?" — ranks destinations under budget with full flight+hotel calc |
+| `cheap_anywhere_from` | Cheapest destinations from your origin |
+| `compare_destinations` | Side-by-side cost comparison of N cities |
+
+### 📋 Planning Mode (you know where)
+| Tool | What it does |
+|------|--------------|
+| `search_flights` | Travelpayouts → Kiwi Tequila fallback chain |
+| `search_hotels` | Hotellook → Xotelo fallback chain |
+| `plan_itinerary` | Day-by-day plan with real activities and weather |
+| `optimize_budget` | Cheapest flight+hotel combo, searches flexible dates |
+
+### 🎯 Mind-Blow Differentiators
+| Tool | What it does | Nobody else has this |
+|------|--------------|----------------------|
+| `score_destinations` | Multi-objective ranking: cost + weather + safety + events + QoL | ✅ |
+| `get_travel_advisory` | Official safety + visa + health + vaccinations | ✅ |
+| `get_local_events` | Concerts/shows/sports during your trip dates | ✅ |
+| `get_cost_of_living` | "Your $100/day = how far?" budget guidance | ✅ |
+| `best_month_to_visit` | 5-year climate analysis for any location | ✅ |
+| `verify_place` | Anti-hallucination — cross-checks AI suggestions | ✅ |
+
+### 🛠️ Enrichment (used by both modes)
+`get_weather` · `convert_currency` · `get_exchange_rates` · `search_activities` · `get_destination_info` · `geocode` · `verify_flight_route`
+
+---
+
+## Setup (5 minutes)
+
+### 1. Install
+```bash
+git clone https://github.com/YOUR_USERNAME/wander-agent.git
+cd wander-agent
+uv sync
+```
+
+### 2. Get free API keys
+```bash
+cp .env.example .env
+```
+
+**Bare minimum (works for ~80% of features):**
+- [Travelpayouts](https://www.travelpayouts.com) — free signup, no approval. One token for flights + hotels.
+
+**Full power (still all free):**
+- [Kiwi Tequila](https://tequila.kiwi.com) — flight fallback
+- [OpenTripMap](https://opentripmap.io) — attractions  
+- [Foursquare](https://developer.foursquare.com) — place verification (200k/mo)
+- [Ticketmaster](https://developer.ticketmaster.com) — local events (5k/day)
+
+**Zero auth required:**  
+weather · currency · travel advisories · cost of living · country info · geocoding · hotel fallback
+
+### 3. Add to Claude Desktop
+`~/Library/Application Support/Claude/claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "wander-agent": {
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/wander-agent", "wander-agent"]
+    }
+  }
+}
+```
+
+### 4. Add to Claude Code
+```bash
+uv run mcp install src/wander_agent/server.py
+```
+
+---
+
+## Architecture
+
+```
+wander-agent/
+├── src/wander_agent/
+│   ├── server.py                  # MCP server (20 tools)
+│   ├── tools/
+│   │   ├── inspiration.py         # find_by_budget, anywhere_from, compare
+│   │   ├── flights.py             # Travelpayouts → Kiwi fallback
+│   │   ├── hotels.py              # Hotellook → Xotelo fallback
+│   │   ├── itinerary.py           # Multi-day orchestrator
+│   │   ├── budget.py              # Flexible-date optimizer
+│   │   ├── score.py               # Multi-objective ranker
+│   │   ├── advisory.py            # travelbriefing.org (no auth)
+│   │   ├── events.py              # Ticketmaster Discovery
+│   │   ├── cost_of_living.py      # Teleport (no auth)
+│   │   ├── seasons.py             # Open-Meteo historical
+│   │   ├── weather.py             # Open-Meteo forecast (no auth)
+│   │   ├── currency.py            # Frankfurter (no auth)
+│   │   ├── activities.py          # OpenTripMap
+│   │   ├── destination.py         # REST Countries + Nominatim (no auth)
+│   │   └── verify.py              # OSM + Foursquare + OTM cross-check
+│   └── utils/
+│       ├── http.py                # Shared async client
+│       └── config.py              # API key management
+├── pyproject.toml
+└── .env.example
+```
+
+---
+
+## API Sources (all free tiers)
+
+| Source | Used For | Auth |
+|--------|----------|------|
+| Travelpayouts | Flights, hotels, anywhere search | Free token |
+| Kiwi Tequila | Flight fallback | Free sandbox |
+| Xotelo | Hotel fallback (TripAdvisor data) | **None** |
+| Open-Meteo | Weather + historical climate | **None** |
+| Frankfurter | Currency rates (ECB data) | **None** |
+| REST Countries | Country info | **None** |
+| Nominatim/OSM | Geocoding | **None** |
+| travelbriefing.org | Travel advisories | **None** |
+| Teleport | Cost of living, QoL scores | **None** |
+| OpenTripMap | Attractions, POIs | Free key |
+| Foursquare | Place verification | Free (200k/mo) |
+| Ticketmaster Discovery | Local events | Free (5k/day) |
+
+**8 of 12 sources need zero authentication.**
+
+---
+
+## Why this is a big deal
+
+There are MCP servers for flights. MCP servers for hotels. But nothing unifies the full travel agent workflow with verification, inspiration mode, and differentiators like cost-of-living + events + multi-objective scoring.
+
+This is the first **complete agentic travel toolkit** for the MCP era.
+
+PRs welcome. License: MIT.
+
+---
+
+### Star the repo if Wander Agent helps you plan a trip 🌟
