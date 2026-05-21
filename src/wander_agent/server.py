@@ -36,7 +36,7 @@ from .tools.destination import geocode, get_destination_info
 from .tools.weather import get_weather
 
 # Mind-blow differentiators
-from .tools.advisory import get_travel_advisory
+from .tools.advisory import get_travel_advisory, list_advisories_by_level
 from .tools.events import get_local_events
 from .tools.cost_of_living import get_cost_of_living
 from .tools.score import score_destinations
@@ -285,15 +285,27 @@ async def tool_optimize_budget(
 
 @mcp.tool()
 async def tool_get_travel_advisory(country: str) -> dict:
-    """DIFFERENTIATOR: Get safety, visa, health, and travel briefing for a country.
+    """Official US State Department travel advisory for a country.
 
-    Pulls from official government advisories via travelbriefing.org.
-    Includes vaccinations, water safety, electricity, currency, language.
+    Returns advisory level (1=safe, 4=do not travel), summary, and link.
+    No API key. Cached 60 min.
 
     Args:
-        country: Country name in English (e.g., "Japan", "Egypt", "Mexico")
+        country: Country name in English (e.g., "Japan", "Egypt") or ISO code
     """
     return await get_travel_advisory(country)
+
+
+@mcp.tool()
+async def tool_list_advisories_by_level(min_level: int = 3) -> dict:
+    """List countries currently at advisory level X or above.
+
+    "What countries should I avoid right now?"
+
+    Args:
+        min_level: 1-4. Default 3 = Reconsider Travel. 4 = Do Not Travel.
+    """
+    return await list_advisories_by_level(min_level)
 
 
 @mcp.tool()

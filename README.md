@@ -1,109 +1,89 @@
-# 🧭 Wander Agent
+# Wander Agent
 
-> **The AI travel agent that does what no other open-source tool does.**
+An MCP server that turns Claude (or any MCP-compatible AI) into a working travel agent. It searches flights, finds hotels, builds itineraries, ranks destinations by what actually matters to you, and verifies its own recommendations against real data so the model doesn't hallucinate restaurants that don't exist.
 
-An MCP server with **20 tools** that turn Claude (or any MCP-compatible AI) into a world-class travel agent. Two modes: **Inspiration** (don't know where to go) and **Planning** (know where you're going). Plus differentiators nobody else ships.
+There is no UI. You install it once, point Claude Desktop or Claude Code at it, and then you have 21 travel tools available inside any AI conversation.
 
-**100% free APIs. No paid keys. No frontend. Just import and go.**
+## Why this exists
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![MCP](https://img.shields.io/badge/MCP-compatible-green.svg)](https://modelcontextprotocol.io)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+Most open-source AI travel projects are standalone web apps. They're products, not capabilities. The MCP servers that do exist tend to be narrow — flights only, or hotels only — with no composition between them.
 
----
+Wander Agent is the opposite. It's a single MCP server that orchestrates 12 different APIs into a coherent travel agent, designed to be imported into the AI you already use. Two modes:
 
-## What makes this different
+- **Inspiration mode**: you have a budget but no destination. Ask "where can I go with $1500 in March?" and the agent returns ranked destinations with full flight + hotel costs.
+- **Planning mode**: you know where you're going. Ask "plan five days in Tokyo, I like food and history" and the agent fetches flights, hotels, real attractions, weather for your dates, country info, and local events.
 
-Every other open-source travel agent is a Streamlit app or Next.js webapp. They're products. **Wander Agent is a capability** — add it to Claude/ChatGPT/Cursor and any AI becomes a travel agent.
+Both modes share a verification layer that cross-checks any recommendation against multiple sources before passing it to you, which is the main thing that keeps the LLM honest.
 
-### Real use cases that nothing else handles:
+## What's in it
 
-> 🎯 "I have $1500. Trip in March. Surprise me."
-> → `find_destinations_by_budget` calculates flight+hotel for 50+ destinations under $1500, ranks them.
+There are 21 tools. They fall into four groups.
 
-> 🎭 "Paris vs Rome vs Barcelona for next month — show me everything."
-> → `compare_destinations` returns flight+hotel costs for all three, side-by-side, ranked.
+### Inspiration (you don't know where yet)
 
-> 🌍 "Where should I go in July for warm weather, low crime, and music festivals?"
-> → `score_destinations` ranks by cost + weather + safety + events simultaneously.
+- `find_destinations_by_budget` — calculates flight + hotel for many destinations and returns the ones under your total budget, with full cost breakdowns
+- `cheap_anywhere_from` — cheapest destinations from your origin, optionally constrained to a month
+- `compare_destinations` — side-by-side cost comparison for a list of cities on the same dates
 
-> 🎤 "Plan Tokyo in May. Also tell me if any of my favorite bands are playing then."
-> → `plan_itinerary` + `get_local_events` returns the trip plus concerts/shows during those exact dates.
+### Planning (you do)
 
-> 💰 "How far does $100/day actually go in Lisbon vs Tokyo vs Reykjavik?"
-> → `get_cost_of_living` returns budget breakdown for each city.
+- `search_flights` — Travelpayouts primary, Kiwi Tequila fallback
+- `search_hotels` — Hotellook (Travelpayouts)
+- `plan_itinerary` — orchestrates weather, activities, country info, and currency into a day-by-day plan
+- `optimize_budget` — flexible-date search for cheapest flight + hotel combination
 
-> 🚨 "Is Egypt safe right now? What vaccinations do I need?"
-> → `get_travel_advisory` returns official government advisories + health requirements.
+### Differentiators
 
-> 📅 "When is the best time to visit Bali?"
-> → `best_month_to_visit` analyzes 5 years of historical climate data.
+These are the tools that don't exist anywhere else as MCP capabilities.
 
-> 🛡️ "AI suggested 'Restaurant Le Bernardin in Lyon' — does that actually exist?"
-> → `verify_place` cross-checks OpenStreetMap, Foursquare, and OpenTripMap.
+- `score_destinations` — multi-objective ranking. Weights cost, weather match, safety advisories, event density, and quality-of-life into a single composite score per city. You set the weights.
+- `get_travel_advisory` — pulls live from the US State Department's RSS feed, returns levels 1–4, the full advisory text, and the official URL. Cached for 60 minutes.
+- `list_advisories_by_level` — list every country currently at advisory level N or above
+- `get_local_events` — concerts, sports, shows happening during your trip dates via Ticketmaster Discovery. "Coldplay is playing in Paris while you're there" is the use case.
+- `get_cost_of_living` — daily traveler budget at three tiers (budget/mid/luxury) for 100+ destinations, with optional currency conversion
+- `best_month_to_visit` — analyzes five years of historical climate data to recommend months matching your preference (warm-dry, cool-dry, snow, etc.)
+- `verify_place` — cross-checks any place name against Wikidata, Open-Meteo geocoding, Foursquare, and OpenTripMap. Returns a confidence score so you can tell the LLM "don't recommend things that don't exist."
+- `verify_flight_route` — confirms a route is actually flown between two airports
 
----
+### Enrichment (used by both modes)
 
-## The 20 Tools
+`get_weather` (live forecast within 16 days, climatology beyond), `convert_currency`, `get_exchange_rates`, `search_activities`, `get_destination_info`, `geocode`.
 
-### 🎲 Inspiration Mode (don't know where to go)
-| Tool | What it does |
-|------|--------------|
-| `find_destinations_by_budget` | "I have $X, where can I go?" — ranks destinations under budget with full flight+hotel calc |
-| `cheap_anywhere_from` | Cheapest destinations from your origin |
-| `compare_destinations` | Side-by-side cost comparison of N cities |
+## Data sources
 
-### 📋 Planning Mode (you know where)
-| Tool | What it does |
-|------|--------------|
-| `search_flights` | Travelpayouts → Kiwi Tequila fallback chain |
-| `search_hotels` | Hotellook → Xotelo fallback chain |
-| `plan_itinerary` | Day-by-day plan with real activities and weather |
-| `optimize_budget` | Cheapest flight+hotel combo, searches flexible dates |
+Twelve APIs. Eight of them require no authentication at all. The other four have free tiers generous enough that you can use this seriously without paying anyone.
 
-### 🎯 Mind-Blow Differentiators
-| Tool | What it does | Nobody else has this |
-|------|--------------|----------------------|
-| `score_destinations` | Multi-objective ranking: cost + weather + safety + events + QoL | ✅ |
-| `get_travel_advisory` | Official safety + visa + health + vaccinations | ✅ |
-| `get_local_events` | Concerts/shows/sports during your trip dates | ✅ |
-| `get_cost_of_living` | "Your $100/day = how far?" budget guidance | ✅ |
-| `best_month_to_visit` | 5-year climate analysis for any location | ✅ |
-| `verify_place` | Anti-hallucination — cross-checks AI suggestions | ✅ |
+| Source | Purpose | Auth |
+|---|---|---|
+| Open-Meteo | Live weather + historical climate | none |
+| Open-Meteo Geocoding | City → coordinates with population, timezone | none |
+| Frankfurter | Currency rates from the European Central Bank | none |
+| REST Countries | Country metadata | none |
+| Wikidata SPARQL | Place verification | none |
+| US State Department RSS | Travel advisories | none |
+| Curated dataset | Cost of living | none (in-repo) |
+| Travelpayouts | Flights + hotels | free token |
+| Kiwi Tequila | Flight fallback | free sandbox |
+| OpenTripMap | Attractions and POIs | free key |
+| Foursquare | Secondary verification source | free 200k/month |
+| Ticketmaster Discovery | Local events | free 5k/day |
 
-### 🛠️ Enrichment (used by both modes)
-`get_weather` · `convert_currency` · `get_exchange_rates` · `search_activities` · `get_destination_info` · `geocode` · `verify_flight_route`
+For the bare minimum useful agent you only need the Travelpayouts token. Sign-up is two minutes with no approval process. Everything else is optional.
 
----
+## Setup
 
-## Setup (5 minutes)
-
-### 1. Install
 ```bash
-git clone https://github.com/YOUR_USERNAME/wander-agent.git
+git clone https://github.com/VirajMishra1/wander-agent.git
 cd wander-agent
 uv sync
-```
-
-### 2. Get free API keys
-```bash
 cp .env.example .env
+# Edit .env. The only key you really need is TRAVELPAYOUTS_TOKEN.
 ```
 
-**Bare minimum (works for ~80% of features):**
-- [Travelpayouts](https://www.travelpayouts.com) — free signup, no approval. One token for flights + hotels.
+### Add to Claude Desktop
 
-**Full power (still all free):**
-- [Kiwi Tequila](https://tequila.kiwi.com) — flight fallback
-- [OpenTripMap](https://opentripmap.io) — attractions  
-- [Foursquare](https://developer.foursquare.com) — place verification (200k/mo)
-- [Ticketmaster](https://developer.ticketmaster.com) — local events (5k/day)
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS (or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
-**Zero auth required:**  
-weather · currency · travel advisories · cost of living · country info · geocoding · hotel fallback
-
-### 3. Add to Claude Desktop
-`~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
@@ -115,73 +95,125 @@ weather · currency · travel advisories · cost of living · country info · ge
 }
 ```
 
-### 4. Add to Claude Code
+Restart Claude Desktop. The tools should appear in the tool list.
+
+### Add to Claude Code
+
+From inside the repo:
+
 ```bash
 uv run mcp install src/wander_agent/server.py
 ```
 
----
+Or add to your project's `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "wander-agent": {
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/wander-agent", "wander-agent"]
+    }
+  }
+}
+```
+
+## How to actually use it
+
+Once installed, you just talk to Claude. The agent picks the right tools.
+
+```
+You: I have $1500. I want to go somewhere warm in March. Surprise me.
+
+Claude: [calls find_destinations_by_budget with origin=JFK, budget=1500,
+         departure_month=2026-03, then score_destinations on top results
+         with weather_pref=warm_dry]
+```
+
+```
+You: Paris vs Rome vs Barcelona for next month — show me real numbers.
+
+Claude: [calls compare_destinations]
+```
+
+```
+You: Plan five days in Tokyo in May. I like food and architecture.
+     Also tell me if any interesting concerts happen those days.
+
+Claude: [calls plan_itinerary, then get_local_events]
+```
+
+```
+You: Is Egypt safe right now? Do I need shots?
+
+Claude: [calls get_travel_advisory]
+```
+
+```
+You: You said to eat at "Le Brilliant Bistro" in Lyon. Is that real?
+
+Claude: [calls verify_place, confirms across Wikidata + Foursquare + OSM]
+```
 
 ## Architecture
 
 ```
-wander-agent/
-├── src/wander_agent/
-│   ├── server.py                  # MCP server (20 tools)
-│   ├── tools/
-│   │   ├── inspiration.py         # find_by_budget, anywhere_from, compare
-│   │   ├── flights.py             # Travelpayouts → Kiwi fallback
-│   │   ├── hotels.py              # Hotellook → Xotelo fallback
-│   │   ├── itinerary.py           # Multi-day orchestrator
-│   │   ├── budget.py              # Flexible-date optimizer
-│   │   ├── score.py               # Multi-objective ranker
-│   │   ├── advisory.py            # travelbriefing.org (no auth)
-│   │   ├── events.py              # Ticketmaster Discovery
-│   │   ├── cost_of_living.py      # Teleport (no auth)
-│   │   ├── seasons.py             # Open-Meteo historical
-│   │   ├── weather.py             # Open-Meteo forecast (no auth)
-│   │   ├── currency.py            # Frankfurter (no auth)
-│   │   ├── activities.py          # OpenTripMap
-│   │   ├── destination.py         # REST Countries + Nominatim (no auth)
-│   │   └── verify.py              # OSM + Foursquare + OTM cross-check
-│   └── utils/
-│       ├── http.py                # Shared async client
-│       └── config.py              # API key management
-├── pyproject.toml
-└── .env.example
+src/wander_agent/
+├── server.py              # FastMCP entry point. Registers 21 tools.
+├── tools/
+│   ├── inspiration.py     # find_destinations_by_budget, cheap_anywhere_from, compare_destinations
+│   ├── flights.py         # Travelpayouts → Kiwi fallback chain
+│   ├── hotels.py          # Hotellook
+│   ├── itinerary.py       # Orchestrator: weather + activities + country info in parallel
+│   ├── budget.py          # Flexible-date optimizer (asyncio.gather over date combos)
+│   ├── score.py           # Multi-objective ranker
+│   ├── advisory.py        # US State Dept RSS parser, 60-min cache
+│   ├── events.py          # Ticketmaster Discovery
+│   ├── cost_of_living.py  # Curated dataset + currency conversion
+│   ├── seasons.py         # 5-year climate analysis
+│   ├── weather.py         # Forecast OR climatology depending on horizon
+│   ├── currency.py        # Frankfurter
+│   ├── activities.py      # OpenTripMap with category filtering
+│   ├── destination.py     # Geocoding + country info
+│   └── verify.py          # Wikidata + Open-Meteo + Foursquare cross-check
+└── utils/
+    ├── http.py            # Shared httpx.AsyncClient with connection pooling
+    ├── config.py          # .env loading, key management
+    └── cost_data.py       # Embedded cost-of-living dataset
 ```
 
----
+Every tool is a `@mcp.tool()`-decorated async function. They share a single connection-pooled HTTP client. The MCP lifespan handler closes the client on shutdown.
 
-## API Sources (all free tiers)
+## Design choices worth knowing
 
-| Source | Used For | Auth |
-|--------|----------|------|
-| Travelpayouts | Flights, hotels, anywhere search | Free token |
-| Kiwi Tequila | Flight fallback | Free sandbox |
-| Xotelo | Hotel fallback (TripAdvisor data) | **None** |
-| Open-Meteo | Weather + historical climate | **None** |
-| Frankfurter | Currency rates (ECB data) | **None** |
-| REST Countries | Country info | **None** |
-| Nominatim/OSM | Geocoding | **None** |
-| travelbriefing.org | Travel advisories | **None** |
-| Teleport | Cost of living, QoL scores | **None** |
-| OpenTripMap | Attractions, POIs | Free key |
-| Foursquare | Place verification | Free (200k/mo) |
-| Ticketmaster Discovery | Local events | Free (5k/day) |
+**Fallback chains over single sources.** Flights try Travelpayouts first, then Kiwi. The chain is in code, not in prompts, so the LLM doesn't have to retry.
 
-**8 of 12 sources need zero authentication.**
+**Climatology for far-future dates.** Open-Meteo's forecast horizon is 16 days. Anything beyond that, the weather tool pulls five years of historical data for the exact same calendar dates and averages it. You get a reasonable answer for "what's the weather in Tokyo in November" without lying that it's a real forecast.
 
----
+**Cached advisories.** The State Department RSS feed is fetched once per process and cached for 60 minutes. Most travel sessions hit it many times — caching means the user pays one HTTP round trip, not twenty.
 
-## Why this is a big deal
+**Verification by composition.** `verify_place` doesn't trust any one source. A high-confidence verification means at least two of Wikidata, Open-Meteo geocoding, Foursquare, and OpenTripMap independently confirmed the place exists. A single source is medium confidence. Zero sources is "do not recommend."
 
-There are MCP servers for flights. MCP servers for hotels. But nothing unifies the full travel agent workflow with verification, inspiration mode, and differentiators like cost-of-living + events + multi-objective scoring.
+**Geocoding disambiguation.** Open-Meteo returns up to ten matches for ambiguous names. The tool sorts them by capital-city status, then exact name match, then population. "Bali" returns Indonesia (4.2M), not the village in West Bengal.
 
-This is the first **complete agentic travel toolkit** for the MCP era.
+**No frontend.** No React. No Streamlit. No webapp. The MCP protocol is the interface. Any AI assistant that speaks MCP can use this.
 
-PRs welcome. License: MIT.
+## Limitations
 
----
+- Travelpayouts data is cached from search aggregators. Live availability for booking still requires going through the affiliate URLs.
+- The cost-of-living dataset is a snapshot. It covers ~100 cities directly and falls back to country-level medians for unlisted places.
+- The Ticketmaster events tool covers North America and most of Europe well. Coverage in Asia and Latin America is patchier.
+- The State Department advisories reflect US perspective. Travelers from other countries should also check their own government's guidance.
 
-### Star the repo if Wander Agent helps you plan a trip 🌟
+## Contributing
+
+Pull requests welcome. The repo conventions:
+
+- One tool, one job. If a tool needs more than ~150 lines, it should probably be split.
+- Free APIs only. If an API requires payment or partnership approval, it doesn't go in this repo.
+- Every tool needs to handle the missing-API-key case gracefully and return an error dict with a hint instead of crashing.
+- The shared HTTP client in `utils/http.py` should be used by all tools — no per-tool client instantiation.
+
+## License
+
+MIT.
