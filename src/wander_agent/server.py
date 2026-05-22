@@ -45,6 +45,13 @@ from .tools.seasons import best_month_to_visit
 # Verification
 from .tools.verify import verify_flight_route, verify_place
 
+# Viral killers
+from .tools.skiplagged import find_skiplagged_fares
+from .tools.meetup import multi_origin_meetup
+from .tools.aurora import find_aurora_destinations
+from .tools.mistake_fares import find_mistake_fares
+from .tools.visa import check_visa_requirement, visa_free_destinations
+
 
 @dataclass
 class AppContext:
@@ -509,6 +516,141 @@ async def tool_verify_flight_route(origin: str, destination: str) -> dict:
         destination: IATA code
     """
     return await verify_flight_route(origin, destination)
+
+
+# ============================================================
+# VIRAL KILLERS — features no other OTA has
+# ============================================================
+
+@mcp.tool()
+async def tool_find_skiplagged_fares(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    return_date: str | None = None,
+    max_results: int = 10,
+) -> dict:
+    """KILLER: Find hidden-city ticketing fares (cheaper than direct).
+
+    Buy NYC->Mexico via Houston, get off in Houston, save 60%. Skyscanner
+    and Kayak are CONTRACTUALLY FORBIDDEN from showing these. We pull
+    them direct from Skiplagged.
+
+    CAVEATS: Carry-on only. One-way only. No frequent flyer credit.
+    Tool returns warnings.
+
+    Args:
+        origin: IATA code (e.g., "JFK")
+        destination: IATA code (e.g., "LAX")
+        departure_date: YYYY-MM-DD
+        return_date: YYYY-MM-DD (compare round-trip; book separately)
+        max_results: max fares to return
+    """
+    return await find_skiplagged_fares(origin, destination, departure_date, return_date, max_results)
+
+
+@mcp.tool()
+async def tool_multi_origin_meetup(
+    origins: str,
+    departure_date: str,
+    return_date: str,
+    max_results: int = 10,
+    currency: str = "USD",
+    regions: str | None = None,
+) -> dict:
+    """KILLER: Find cheapest meeting point for travelers from N different cities.
+
+    "3 friends in SF, London, Tokyo - cheapest weekend they can all meet."
+    No OTA does this. Math is combinatorial — we loop curated destinations
+    and sum round-trip costs per traveler.
+
+    Args:
+        origins: Comma-separated IATA codes (e.g., "JFK,LHR,NRT")
+        departure_date: YYYY-MM-DD
+        return_date: YYYY-MM-DD
+        max_results: max destinations to return
+        currency: USD, EUR, etc.
+        regions: limit candidates (e.g., "europe,asia")
+    """
+    return await multi_origin_meetup(origins, departure_date, return_date, max_results, currency, regions)
+
+
+@mcp.tool()
+async def tool_find_aurora_destinations(
+    origin: str,
+    max_budget: float = 1500.0,
+    days_ahead_min: int = 7,
+    days_ahead_max: int = 60,
+    currency: str = "USD",
+    max_results: int = 8,
+) -> dict:
+    """KILLER: Reverse search - "where to see northern lights cheapest, next 60 days?"
+
+    Combines NOAA KP-index forecast + aurora-zone airports + flight prices.
+    Returns ranked destinations with aurora visibility scores.
+
+    Args:
+        origin: Departure IATA code
+        max_budget: Max flight budget
+        days_ahead_min: Earliest departure (days from now)
+        days_ahead_max: Latest departure
+        currency: USD, EUR, etc.
+        max_results: max destinations
+    """
+    return await find_aurora_destinations(origin, max_budget, days_ahead_min, days_ahead_max, currency, max_results)
+
+
+@mcp.tool()
+async def tool_find_mistake_fares(
+    origin: str | None = None,
+    days_lookback: int = 14,
+    max_results: int = 20,
+) -> dict:
+    """KILLER: Recent mistake fares + deal alerts from Secret Flying + Flight Deal RSS.
+
+    The signal Going.com charges $49/yr for, free.
+
+    Args:
+        origin: City name filter (e.g., "New York") or omit for all
+        days_lookback: Only posts from last N days
+        max_results: max deals
+    """
+    return await find_mistake_fares(origin, days_lookback, max_results)
+
+
+@mcp.tool()
+async def tool_check_visa_requirement(
+    passport_country: str,
+    destination_country: str,
+) -> dict:
+    """KILLER: Check visa requirements (counters viral AI-fail ESTA incidents).
+
+    Returns category (visa_free, eta_required, visa_on_arrival, evisa,
+    visa_required) plus guidance. Direct response to the Mery Caldass
+    incident where ChatGPT told a traveler she didn't need ESTA -
+    she got denied boarding (millions of views).
+
+    Args:
+        passport_country: ISO 2-letter (e.g., "US", "GB", "IN")
+        destination_country: ISO 2-letter (e.g., "JP", "TH")
+    """
+    return await check_visa_requirement(passport_country, destination_country)
+
+
+@mcp.tool()
+async def tool_visa_free_destinations(
+    passport_country: str,
+    include_categories: str = "visa_free,visa_on_arrival,evisa,eta_required",
+) -> dict:
+    """KILLER: All destinations a passport can enter without a traditional visa.
+
+    "I'm Indian passport, show every country I can fly to with e-visa or visa-on-arrival."
+
+    Args:
+        passport_country: ISO 2-letter code
+        include_categories: Comma-separated category filter
+    """
+    return await visa_free_destinations(passport_country, include_categories)
 
 
 def main():

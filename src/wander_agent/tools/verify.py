@@ -24,6 +24,19 @@ async def verify_place(
     results: dict = {"place_name": place_name, "city": city, "verified": False, "sources": []}
     client = await get_client()
 
+    def _name_match(a: str, b: str) -> bool:
+        """Strict: exact match, or full token containment with reasonable length ratio."""
+        a, b = a.strip().lower(), b.strip().lower()
+        if not a or not b:
+            return False
+        if a == b:
+            return True
+        if len(a) < 4 or len(b) < 4:
+            return a == b
+        if (a in b and len(a) / len(b) >= 0.5) or (b in a and len(b) / len(a) >= 0.5):
+            return True
+        return False
+
     # Source 1: Wikidata SPARQL (free, no auth, no rate limit)
     try:
         sparql_query = f"""
@@ -77,10 +90,11 @@ async def verify_place(
         if geo_resp.status_code == 200:
             geo_results = (geo_resp.json() or {}).get("results") or []
             for g in geo_results:
-                # Must be in the right city or nearby
-                if (g.get("admin1", "").lower() == city.lower() or
+                if _name_match(g.get("name", ""), place_name) and (
+                    g.get("admin1", "").lower() == city.lower() or
                     g.get("name", "").lower() == city.lower() or
-                    place_name.lower() in g.get("name", "").lower()):
+                    city.lower() in (g.get("admin1") or "").lower()
+                ):
                     results["sources"].append({
                         "source": "Open-Meteo Geocoding",
                         "found": True,
@@ -136,7 +150,7 @@ async def verify_place(
             )
             if otm_resp.status_code == 200:
                 otm_data = otm_resp.json()
-                matching = [p for p in otm_data if place_name.lower() in (p.get("name", "").lower())]
+                matching = [p for p in otm_data if _name_match(p.get("name", ""), place_name)]
                 if matching:
                     results["sources"].append({
                         "source": "OpenTripMap",

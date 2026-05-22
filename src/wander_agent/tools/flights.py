@@ -98,6 +98,7 @@ async def _search_fast_flights(
     from .currency import convert_currency
 
     parsed = []
+    seen_keys = set()
     for f in raw_flights:
         if nonstop_only and getattr(f, "stops", 0) != 0:
             continue
@@ -105,25 +106,32 @@ async def _search_fast_flights(
         amount, native_curr = _parse_price(price_raw)
         if amount == 0:
             continue
+        airline = getattr(f, "name", "")
+        departure = getattr(f, "departure", "")
+        arrival = getattr(f, "arrival", "")
+        # Dedupe by (airline, departure, arrival, price)
+        dedup_key = (airline, departure, arrival, round(amount, 2))
+        if dedup_key in seen_keys:
+            continue
+        seen_keys.add(dedup_key)
         parsed.append({
-            "airline": getattr(f, "name", ""),
-            "departure": getattr(f, "departure", ""),
-            "arrival": getattr(f, "arrival", ""),
+            "airline": airline,
+            "departure": departure,
+            "arrival": arrival,
             "arrival_time_offset": getattr(f, "arrival_time_ahead", ""),
             "duration": getattr(f, "duration", ""),
             "stops": getattr(f, "stops", 0),
             "delay": getattr(f, "delay", None),
             "is_best": bool(getattr(f, "is_best", False)),
-            "price_raw": price_raw,
-            "price_native": amount,
-            "native_currency": native_curr,
+            "_price_native": amount,
+            "_native_currency": native_curr,
         })
 
     # Convert prices to requested currency (batch — one rate lookup per source currency)
     target = currency.upper()
     rates: dict = {}
     for f in parsed:
-        nc = f["native_currency"]
+        nc = f["_native_currency"]
         if nc != target and nc not in rates:
             conv = await convert_currency(1.0, nc, target)
             if not conv.get("error"):
@@ -132,14 +140,17 @@ async def _search_fast_flights(
                 rates[nc] = None
 
     for f in parsed:
-        nc = f["native_currency"]
+        nc = f["_native_currency"]
         if nc == target:
-            f["price"] = f["price_native"]
+            f["price"] = f["_price_native"]
         elif rates.get(nc):
-            f["price"] = round(f["price_native"] * rates[nc], 2)
+            f["price"] = round(f["_price_native"] * rates[nc], 2)
         else:
-            f["price"] = f["price_native"]  # Keep native if conversion failed
+            f["price"] = f["_price_native"]
         f["currency"] = target
+        # Strip internal scaffolding from output
+        del f["_price_native"]
+        del f["_native_currency"]
 
     parsed.sort(key=lambda x: x["price"])
     return {

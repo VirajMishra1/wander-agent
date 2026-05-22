@@ -75,11 +75,25 @@ async def score_destinations(
         rainy = (weather.get("summary") or {}).get("rainy_days", 0)
         total_days = (weather.get("summary") or {}).get("total_days", 1)
         rainy_pct = rainy / max(total_days, 1)
-        cost_per_night = hotels.get("cheapest_price_per_night") or 100
-        advisory_count = advisory.get("advisory_count", 0)
+
+        # Cost: use curated cost-of-living mid-tier (real data), not just hotels
+        col_budget = (col.get("daily_budget_per_person") or {})
+        col_mid = col_budget.get("mid_tier_usd")
+        if col_mid:
+            daily_cost = float(col_mid)
+        else:
+            daily_cost = (hotels.get("cheapest_price_per_night") or 100) + 80
+
+        # Safety: use advisory_level (1-4) directly, default 1 (safest) if no advisory
+        advisory_level = advisory.get("advisory_level") or 1
+
         event_count = events.get("results_count", 0)
-        qol_scores = col.get("category_scores", [])
-        qol_avg = sum(s["score_out_of_10"] for s in qol_scores) / len(qol_scores) if qol_scores else 5
+
+        # QoL proxy from cost tier (cheap=high value, expensive=low)
+        if col_mid:
+            qol_proxy = max(5, min(10, 10 - (col_mid - 50) / 30))
+        else:
+            qol_proxy = 5
 
         # Weather match score (0-10)
         if weather_pref == "warm_dry":
@@ -99,17 +113,17 @@ async def score_destinations(
             "metrics": {
                 "avg_temp_c": avg_temp,
                 "rainy_days_pct": round(rainy_pct * 100, 1),
-                "cost_per_night_usd": cost_per_night,
-                "advisory_count": advisory_count,
+                "daily_cost_usd_mid_tier": daily_cost,
+                "advisory_level": advisory_level,
                 "event_count": event_count,
-                "quality_of_life_score": round(qol_avg, 2),
+                "value_score": round(qol_proxy, 2),
             },
             "raw_scores": {
                 "weather": round(w_score, 2),
-                "cost_value": cost_per_night,
-                "safety_raw": advisory_count,
+                "cost_value": daily_cost,
+                "safety_raw": advisory_level,
                 "events": event_count,
-                "quality_of_life": qol_avg,
+                "quality_of_life": qol_proxy,
             },
         }
 
@@ -121,14 +135,15 @@ async def score_destinations(
     # Normalize costs (lower better)
     costs = [r["raw_scores"]["cost_value"] for r in valid]
     min_cost, max_cost = min(costs), max(costs)
-    safety_raws = [r["raw_scores"]["safety_raw"] for r in valid]
-    max_safety = max(safety_raws) if safety_raws else 0
+    # Safety: advisory_level 1=best, 4=worst. Convert to 0-10 (level 1=10, level 4=0)
+    for r in valid:
+        r["raw_scores"]["safety_normalized"] = max(0, (4 - r["raw_scores"]["safety_raw"]) * (10 / 3))
     events_raws = [r["raw_scores"]["events"] for r in valid]
     max_events = max(events_raws) if events_raws else 1
 
     for r in valid:
         cost_norm = 10 * (1 - (r["raw_scores"]["cost_value"] - min_cost) / max(max_cost - min_cost, 1))
-        safety_norm = 10 * (1 - r["raw_scores"]["safety_raw"] / max(max_safety, 1))
+        safety_norm = r["raw_scores"]["safety_normalized"]
         events_norm = 10 * (r["raw_scores"]["events"] / max(max_events, 1))
         qol_norm = r["raw_scores"]["quality_of_life"]
         weather_norm = r["raw_scores"]["weather"]

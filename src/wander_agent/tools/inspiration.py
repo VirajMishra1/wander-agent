@@ -252,33 +252,58 @@ async def compare_destinations(
     if len(dest_list) < 2:
         return {"error": "Provide at least 2 destinations, comma-separated"}
 
+    from ..utils.airport_data import city_to_iata, iata_to_city
+
     async def _fetch(dest: str) -> dict:
-        flight_task = search_flights(
-            origin=origin, destination=dest, departure_date=departure_date,
+        is_iata = len(dest) == 3 and dest.isalpha()
+        dest_iata = dest.upper() if is_iata else (city_to_iata(dest) or dest.upper())
+        dest_city = dest if not is_iata else (iata_to_city(dest) or dest)
+
+        flight = await search_flights(
+            origin=origin, destination=dest_iata, departure_date=departure_date,
             return_date=return_date, adults=travelers, max_results=3, currency=currency,
         )
-        hotel_task = search_hotels(
-            city=dest, check_in=departure_date, check_out=return_date,
+        if isinstance(flight, Exception) or flight.get("results_count", 0) == 0:
+            # Round-trip failed - try sum of two one-ways
+            outbound = await search_flights(
+                origin=origin, destination=dest_iata, departure_date=departure_date,
+                adults=travelers, max_results=3, currency=currency,
+            )
+            inbound = await search_flights(
+                origin=dest_iata, destination=origin, departure_date=return_date,
+                adults=travelers, max_results=3, currency=currency,
+            )
+            out_p = outbound.get("cheapest_price") if isinstance(outbound, dict) else None
+            in_p = inbound.get("cheapest_price") if isinstance(inbound, dict) else None
+            if out_p and in_p:
+                flight = {"cheapest_price": out_p + in_p, "_note": "sum of two one-ways"}
+            else:
+                flight = flight if isinstance(flight, dict) else {}
+
+        hotel = await search_hotels(
+            city=dest_city, check_in=departure_date, check_out=return_date,
             adults=travelers, max_results=3, currency=currency,
         )
-        flight, hotel = await asyncio.gather(flight_task, hotel_task, return_exceptions=True)
-        flight = flight if not isinstance(flight, Exception) else {}
-        hotel = hotel if not isinstance(hotel, Exception) else {}
+        if isinstance(hotel, Exception):
+            hotel = {}
 
         nights = (datetime.strptime(return_date, "%Y-%m-%d") - datetime.strptime(departure_date, "%Y-%m-%d")).days
-        flight_total = (flight.get("cheapest_price") or 0) * travelers
+        flight_per_person = flight.get("cheapest_price") or 0
+        flight_total = flight_per_person * travelers
         hotel_per_night = hotel.get("cheapest_price_per_night") or 0
         hotel_total = hotel_per_night * nights
 
         return {
-            "destination": dest,
-            "flight_cheapest_per_person": flight.get("cheapest_price"),
+            "destination": dest_city,
+            "destination_airport": dest_iata,
+            "flight_cheapest_per_person": flight_per_person or None,
             "flight_total": flight_total,
-            "hotel_per_night": hotel_per_night,
+            "hotel_per_night": hotel_per_night or None,
             "hotel_total": hotel_total,
             "total_cost": round(flight_total + hotel_total, 2),
             "currency": currency.upper(),
             "nights": nights,
+            "hotel_data_available": bool(hotel_per_night),
         }
 
     results = await asyncio.gather(*[_fetch(d) for d in dest_list])

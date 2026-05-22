@@ -73,3 +73,51 @@ def filter_destinations(
     if exclude_origin:
         result = [d for d in result if d[0] != exclude_origin.upper()]
     return result
+
+
+# Convenience maps for IATA <-> city translation
+_IATA_TO_CITY = {iata: city for iata, city, _, _ in POPULAR_DESTINATIONS}
+_CITY_TO_IATA = {city.lower(): iata for iata, city, _, _ in POPULAR_DESTINATIONS}
+# Common aliases
+_CITY_TO_IATA.update({
+    "tokyo": "NRT", "nyc": "JFK", "new york city": "JFK", "san francisco": "SFO",
+    "los angeles": "LAX", "rome": "FCO", "milan": "MXP", "venice": "VCE",
+    "florence": "FLR", "naples": "NAP", "frankfurt": "FRA", "munich": "MUC",
+    "hamburg": "HAM", "zurich": "ZRH", "geneva": "GVA", "edinburgh": "EDI",
+    "manchester": "MAN", "stockholm": "ARN", "oslo": "OSL", "helsinki": "HEL",
+    "reykjavik": "KEF", "warsaw": "WAW", "budapest": "BUD", "moscow": "SVO",
+    "st petersburg": "LED", "kiev": "KBP", "kyiv": "KBP", "tel aviv": "TLV",
+    "doha": "DOH", "abu dhabi": "AUH", "riyadh": "RUH", "casablanca": "CMN",
+    "marrakech": "RAK", "lagos": "LOS", "manila": "MNL", "jakarta": "CGK",
+    "ho chi minh": "SGN", "saigon": "SGN", "hanoi": "HAN", "yangon": "RGN",
+    "phnom penh": "PNH", "kathmandu": "KTM", "colombo": "CMB", "male": "MLE",
+    "kyoto": "KIX", "osaka": "KIX", "fukuoka": "FUK", "sapporo": "CTS",
+    "beijing": "PEK", "shanghai": "PVG", "guangzhou": "CAN", "chengdu": "CTU",
+    "chicago": "ORD", "boston": "BOS", "washington dc": "IAD", "washington": "IAD",
+    "seattle": "SEA", "denver": "DEN", "atlanta": "ATL", "houston": "IAH",
+    "dallas": "DFW", "phoenix": "PHX", "las vegas": "LAS", "orlando": "MCO",
+    "honolulu": "HNL", "vancouver": "YVR", "montreal": "YUL", "calgary": "YYC",
+    "havana": "HAV", "san jose": "SJO", "panama city": "PTY", "bogota": "BOG",
+    "santiago": "SCL", "buenos aires": "EZE", "rio de janeiro": "GIG",
+    "rio": "GIG", "salvador": "SSA", "quito": "UIO", "la paz": "LPB",
+    "auckland": "AKL", "wellington": "WLG", "christchurch": "CHC",
+    "perth": "PER", "brisbane": "BNE", "melbourne": "MEL",
+})
+
+
+def city_to_iata(name: str) -> str | None:
+    """Look up IATA code for a city name. None if not in our map."""
+    if not name:
+        return None
+    s = name.strip()
+    # If already an IATA code
+    if len(s) == 3 and s.isalpha() and s.isupper():
+        return s
+    return _CITY_TO_IATA.get(s.lower())
+
+
+def iata_to_city(iata: str) -> str | None:
+    """Look up city name for an IATA code."""
+    if not iata:
+        return None
+    return _IATA_TO_CITY.get(iata.upper())

@@ -83,9 +83,12 @@ async def optimize_budget(
                     "flight_details": cheapest,
                 })
 
-    # Search hotels for the destination (uses city name now, not IATA)
+    # Search hotels - translate IATA destination code to city name
+    from ..utils.airport_data import iata_to_city
+    hotel_city = iata_to_city(destination) or destination
+
     hotel_result = await search_hotels(
-        city=destination,
+        city=hotel_city,
         check_in=departure_date,
         check_out=return_date,
         adults=adults,
