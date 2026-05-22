@@ -1,226 +1,351 @@
-# Wander Agent
+# wander-agent
 
-An MCP server that turns Claude into a travel agent that does things Expedia and Skyscanner can't legally do.
+MCP server for travel planning. 33 tools covering flights, hotels, visas, weather, itineraries, cost-of-living, ground transport, and trip scoring. Connects to any MCP-compatible AI client.
 
-**27 tools. Zero API keys required.** Install once, point Claude Desktop or Claude Code at it, and ask the questions OTAs refuse to answer.
-
----
-
-## What this kills
-
-| Question | Skyscanner / Kayak / Expedia | Wander Agent |
-|---|---|---|
-| "Cheapest hidden-city ticket NYC→LAX" | Contractually forbidden. They can't show these. | `find_skiplagged_fares` — pulls from Skiplagged, returns hidden-city itineraries with carry-on warnings |
-| "3 of us in NYC, London, Tokyo — cheapest place we can all meet next month" | No multi-origin search. Search one traveler at a time. | `multi_origin_meetup` — sums round-trip costs across all travelers for ~40 destinations |
-| "Where can I see the northern lights cheapest in next 60 days?" | Static calendar. No KP-index awareness. | `find_aurora_destinations` — NOAA aurora forecast + flight prices to aurora-zone airports |
-| "Find me a mistake fare from Houston anywhere this month" | Doesn't track these. | `find_mistake_fares` — RSS scraping of Secret Flying and The Flight Deal |
-| "I'm Indian passport — what countries can I visit visa-free or with e-visa?" | No visa filter. | `visa_free_destinations` + `check_visa_requirement` — curated visa data, counters the viral Mery Caldass ESTA fail |
-| "Is the restaurant Claude suggested actually real?" | Doesn't verify. | `verify_place` — cross-checks Wikidata + Open-Meteo + Foursquare with strict name matching |
-| "Compare cost of living of Lisbon vs Tokyo vs Reykjavik in EUR" | Doesn't surface this. | `get_cost_of_living` — three tiers (budget/mid/luxury), currency-converted |
-| "What countries are at travel advisory level 4 right now?" | Doesn't track. | `list_advisories_by_level` — live US State Dept RSS |
+No single API key is required. All tools degrade gracefully — live data when keys are present, Wikidata/static fallbacks otherwise.
 
 ---
 
-## The 10 viral demo prompts
+## Requirements
 
-Try these inside Claude Desktop or Claude Code after install. Screenshot-ready.
-
-1. **"I'm in NYC, my partner's in London, my friend is in Tokyo. Cheapest weekend the three of us can meet next month."**  
-   → `multi_origin_meetup` loops 40 destinations, sums per-traveler round-trip costs.
-
-2. **"Find me a flight to LAX from JFK but cheaper using hidden-city ticketing."**  
-   → `find_skiplagged_fares` returns hidden-city itineraries with carry-on warnings.
-
-3. **"Where can I see northern lights for under $1500 from NYC in the next 60 days?"**  
-   → `find_aurora_destinations` combines NOAA KP forecast with flight prices to Tromso, Reykjavik, Fairbanks.
-
-4. **"I have an Indian passport. List every country I can visit with e-visa or visa-on-arrival under $400 from Bangalore."**  
-   → `visa_free_destinations` filtered + `cheap_anywhere_from`. Nothing else does passport-aware filtering.
-
-5. **"Plan a 5-day Tokyo trip in May. Use real attractions. Tell me what events are happening."**  
-   → `plan_itinerary` orchestrates weather + activities + country info. `get_local_events` adds concerts.
-
-6. **"Paris vs Rome vs Barcelona for next month. Real flight and hotel costs, ranked."**  
-   → `compare_destinations` — side-by-side total cost comparison.
-
-7. **"I have $1500 for August. Surprise me with the best destinations from JFK."**  
-   → `find_destinations_by_budget` calculates flight + hotel for 40 destinations under budget.
-
-8. **"Recent mistake fares from Los Angeles."**  
-   → `find_mistake_fares` pulls live RSS from Secret Flying.
-
-9. **"Is Egypt safe to travel right now? What vaccinations?"**  
-   → `get_travel_advisory` — live US State Department RSS, levels 1-4 with summaries.
-
-10. **"You said to eat at 'Le Cinq' in Paris. Is that real?"**  
-    → `verify_place` cross-checks four sources, returns confidence.
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ---
 
-## All 27 tools
-
-### Killer differentiators (no other OTA / agent has these)
-- `find_skiplagged_fares` — hidden-city ticketing
-- `multi_origin_meetup` — N-traveler convergence optimization
-- `find_aurora_destinations` — NOAA forecast + flight prices, reverse natural-phenomenon search
-- `find_mistake_fares` — Secret Flying + Flight Deal RSS
-- `check_visa_requirement` — passport-aware visa lookup (curated dataset)
-- `visa_free_destinations` — list all destinations a passport can enter
-- `score_destinations` — multi-objective ranker (cost + weather + safety + events + value)
-- `verify_place` — anti-hallucination cross-check (Wikidata + Open-Meteo + Foursquare + OpenTripMap)
-- `verify_flight_route` — confirm route exists via probe search
-- `best_month_to_visit` — 5-year climate analysis
-- `get_cost_of_living` — curated 100-city dataset, three budget tiers
-- `get_travel_advisory` + `list_advisories_by_level` — live US State Dept RSS
-
-### Core search
-- `search_flights` — Google Flights via `fast_flights` library
-- `search_hotels` — Google Hotels names + Booking/Google/Airbnb deeplinks
-- `plan_itinerary` — multi-day plan with real activities and weather
-- `optimize_budget` — flexible-date search for cheapest flight + hotel combo
-
-### Inspiration (don't know where yet)
-- `find_destinations_by_budget` — "I have $X, where can I go?"
-- `cheap_anywhere_from` — cheapest from origin, regional filter
-- `compare_destinations` — side-by-side cost comparison
-
-### Enrichment
-- `get_weather` — live forecast or climatology for far-future dates
-- `convert_currency` + `get_exchange_rates` — Frankfurter, ECB data
-- `search_activities` — OpenTripMap (requires free key)
-- `get_local_events` — Ticketmaster Discovery (requires free key)
-- `get_destination_info` — country metadata
-- `geocode` — city/place → coordinates
-
----
-
-## Setup
+## Install
 
 ```bash
 git clone https://github.com/VirajMishra1/wander-agent.git
 cd wander-agent
-uv sync --no-editable
+uv pip install -e .
+# or: pip install -e .
 ```
 
-Add to Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Verify:
+
+```bash
+python -c "import wander_agent; print('ok')"
+```
+
+---
+
+## Environment Variables
+
+All optional. Copy `.env.example` to `.env` and fill in what you have.
+
+| Variable | Used by | Without it |
+|---|---|---|
+| `OPENTRIPMAP_API_KEY` | `search_activities` | Falls back to Wikidata SPARQL |
+| `AMADEUS_CLIENT_ID` | `search_flights` | Falls back to Google Flights scraper |
+| `AMADEUS_CLIENT_SECRET` | `search_flights` | Falls back to Google Flights scraper |
+| `SERPAPI_KEY` | `search_hotels`, `get_local_events` | Falls back to static scraping |
+| `EXCHANGERATE_API_KEY` | `convert_currency`, `get_exchange_rates` | Falls back to open.er-api.com (rate-limited) |
+| `ROME2RIO_KEY` | `search_ground_transport` | Falls back to public demo key |
+
+---
+
+## MCP Client Setup
+
+The server entry point is `wander-agent` (installed by pip/uv).
+
+### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
 ```json
 {
   "mcpServers": {
     "wander-agent": {
-      "command": "uv",
-      "args": ["run", "--no-editable", "--directory", "/absolute/path/to/wander-agent", "wander-agent"]
+      "command": "wander-agent"
     }
   }
 }
 ```
 
-Restart Claude. The 27 tools appear.
+If `wander-agent` isn't in PATH, use the full path:
 
-For Claude Code: `uv run --no-editable mcp install src/wander_agent/server.py`.
+```json
+{
+  "mcpServers": {
+    "wander-agent": {
+      "command": "/path/to/your/venv/bin/wander-agent"
+    }
+  }
+}
+```
 
-**No `.env` required for the minimum-functional agent.** Optional keys upgrade specific features:
+Restart Claude Desktop after editing.
 
-| Key | Unlocks | Free? |
-|---|---|---|
-| `OPENTRIPMAP_API_KEY` | Richer attraction descriptions | Yes, no approval |
-| `TICKETMASTER_API_KEY` | Live concert/event search | Yes, 5k/day |
-| `FOURSQUARE_API_KEY` | Third place-verification source | Yes, 200k/month |
-| `TRAVELPAYOUTS_TOKEN` | In-tool live hotel prices (otherwise click-through) | Yes, but UI is hard |
+### Claude Code (CLI)
+
+```bash
+claude mcp add wander-agent wander-agent
+```
+
+Or with env vars:
+
+```bash
+claude mcp add wander-agent -e OPENTRIPMAP_API_KEY=your_key wander-agent
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json` in your project root, or `~/.cursor/mcp.json` globally:
+
+```json
+{
+  "mcpServers": {
+    "wander-agent": {
+      "command": "wander-agent",
+      "env": {
+        "OPENTRIPMAP_API_KEY": "your_key_here"
+      }
+    }
+  }
+}
+```
+
+### Cline (VS Code extension)
+
+Open VS Code settings, search for `Cline: Mcp Settings`, or edit `cline_mcp_settings.json` directly:
+
+```json
+{
+  "mcpServers": {
+    "wander-agent": {
+      "command": "wander-agent",
+      "args": []
+    }
+  }
+}
+```
+
+### Windsurf
+
+Edit `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "wander-agent": {
+      "command": "wander-agent"
+    }
+  }
+}
+```
+
+### Continue.dev
+
+Add to `.continuerc.json` in your project, or `~/.continue/config.json` globally:
+
+```json
+{
+  "experimental": {
+    "modelContextProtocolServers": [
+      {
+        "transport": {
+          "type": "stdio",
+          "command": "wander-agent"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Zed
+
+Edit `~/.config/zed/settings.json`:
+
+```json
+{
+  "context_servers": {
+    "wander-agent": {
+      "command": {
+        "path": "wander-agent",
+        "args": []
+      }
+    }
+  }
+}
+```
+
+### OpenAI Codex / Agents API
+
+OpenAI's Agents API does not natively support MCP as of mid-2025. To use wander-agent tools, either:
+- Wrap tool calls manually using the wander-agent Python functions directly
+- Use a bridge like [mcp-agent](https://github.com/lastmile-ai/mcp-agent) to proxy MCP tools into OpenAI tool format
 
 ---
 
-## Data sources (free, mostly no auth)
+## Tools Reference
 
-| Source | Used for | Auth |
+### Trip Planning
+
+| Tool | Description | Key Parameters |
 |---|---|---|
-| Google Flights (via `fast_flights`) | Flight search, route probe | none |
-| Google Hotels (via `fast_hotels`) | Hotel names | none |
-| Booking.com / Airbnb / Google Hotels deeplinks | Live hotel prices via click-through | none |
-| Skiplagged | Hidden-city ticketing | none |
-| Open-Meteo | Weather forecast + 5-year historical | none |
-| Open-Meteo Geocoding | City → coordinates with population | none |
-| Frankfurter | Currency rates from ECB | none |
-| REST Countries | Country metadata | none |
-| Wikidata SPARQL | Place verification | none |
-| US State Department RSS | Travel advisories | none |
-| Secret Flying / Flight Deal RSS | Mistake fares | none |
-| NOAA SWPC | Aurora KP-index forecast | none |
-| OpenTripMap | Attractions / POIs | free key |
-| Foursquare | Place verification (optional) | free key |
-| Ticketmaster Discovery | Events | free key |
-| Travelpayouts Hotellook | Live hotel prices (optional) | free token |
-| Curated cost-of-living dataset | 100-city traveler budgets | none (embedded) |
-| Curated visa dataset | Visa requirements per passport | none (embedded) |
-| Curated airport list | Inspiration loop targets | none (embedded) |
+| `plan_trip_package` | One-call bookable trip: flights + hotels + visa + weather + advisory + ground transport + attractions + cost estimate + booking checklist | `origin`, `destination`, `departure_date`, `trip_length_days`, `travelers`, `passport_country`, `budget_level` |
+| `plan_itinerary` | Day-by-day itinerary for a destination | `destination`, `days`, `interests`, `budget_level` |
+| `score_destinations` | Rank destinations by cost/weather/safety/events (weighted) | `destinations` (CSV), `travel_start`, `travel_end`, `weights`, `origin` |
+| `compare_destinations` | Side-by-side comparison of 2–5 destinations | `destinations` (CSV), `travel_dates`, `budget_level` |
+| `optimize_budget` | Break down budget across flights/hotels/food/activities | `destination`, `total_budget`, `trip_days`, `travelers` |
 
-**18 sources. 15 require zero authentication.**
+### Flights
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `search_flights` | Search round-trip or one-way flights. Price always per-person. | `origin`, `destination`, `departure_date`, `return_date`, `adults` |
+| `find_destinations_by_budget` | Find destinations reachable within a flight budget from an origin | `origin`, `max_budget`, `departure_date`, `currency` |
+| `cheap_anywhere_from` | Cheapest flights from an origin across all destinations | `origin`, `departure_date`, `round_trip_days`, `max_results` |
+| `find_skiplagged_fares` | Hidden-city ticketing fare search | `origin`, `destination`, `date` |
+| `find_mistake_fares` | Scan for anomalously cheap fares (error fares) | `origin`, `max_price`, `departure_date` |
+| `multi_origin_meetup` | Find cheapest meeting point for travelers flying from multiple origins | `origins` (CSV), `travel_start`, `travel_end` |
+| `verify_flight_route` | Verify a flight route exists and return sample pricing | `origin`, `destination` |
+
+### Hotels
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `search_hotels` | Search hotels with pricing. Returns booking deep-links. | `city`, `check_in`, `check_out`, `adults`, `max_results` |
+
+### Visa & Entry
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `check_visa_requirement` | Visa category + guidance + official apply links for a passport/destination pair | `passport_country` (ISO-2), `destination_country` (ISO-2) |
+| `visa_free_destinations` | List all destinations accessible without a full visa for a passport | `passport_country`, `include_categories` |
+
+### Weather & Advisory
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `get_weather` | Forecast or historical weather for a location and date range | `latitude`, `longitude`, `start_date`, `end_date` |
+| `best_month_to_visit` | Best and worst months to visit a destination by weather | `destination` |
+| `get_travel_advisory` | US State Dept advisory level + summary for a country | `country` |
+| `list_advisories_by_level` | All countries at or above a given advisory level | `min_level` (1–4) |
+
+### Costs & Currency
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `get_cost_of_living` | Daily budget estimates (budget/mid/luxury) for a city | `city`, `home_currency` |
+| `convert_currency` | Convert an amount between currencies | `amount`, `from_currency`, `to_currency` |
+| `get_exchange_rates` | Live exchange rates for a base currency | `base_currency`, `target_currencies` |
+
+### Activities & Destination Info
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `search_activities` | Attractions near a location. Uses OpenTripMap if keyed, Wikidata otherwise. | `latitude`, `longitude`, `radius_km`, `category` |
+| `get_local_events` | Events at a destination during travel dates | `city`, `start_date`, `end_date` |
+| `get_destination_info` | Country info: currency, language, timezone, calling code | `country_name` |
+| `geocode` | Lat/lon + country for a place name | `place_name` |
+| `verify_place` | Confirm a place exists and return canonical name | `place_name`, `country` |
+
+### Niche / Inspiration
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `find_aurora_destinations` | Destinations with aurora viewing conditions for a date | `travel_start`, `travel_end` |
+| `search_ground_transport` | Bus/train/ferry options between cities. Region-aware (US/Europe/India/SEA). | `origin_city`, `destination_city`, `date`, `travelers` |
+
+### Traveler Profile
+
+| Tool | Description | Key Parameters |
+|---|---|---|
+| `get_traveler_profile` | Load saved traveler preferences. Returns onboarding prompts if first use. | — |
+| `onboard_traveler` | Save home airports, passports, travel style, dietary, interests | `name`, `home_airports`, `passports`, `home_currency`, `travel_style` |
+| `update_traveler_profile` | Update any profile field. Supports append operations for visas and trips. | any profile field |
+| `get_trip_history` | Last N completed trips | `limit` |
+
+---
+
+## Data Sources
+
+| Source | Provides | API Key | Fallback |
+|---|---|---|---|
+| Google Flights (scraper) | Flight prices and routes | None | — |
+| fast-flights (PyPI) | Flight price parsing | None | — |
+| Open-Meteo | Weather forecasts + historical | None (free) | — |
+| Wikidata SPARQL | Attractions near coordinates | None (free) | — |
+| OpenTripMap | Rated attractions database | `OPENTRIPMAP_API_KEY` | Wikidata |
+| US State Dept RSS | Travel advisories | None (public RSS) | — |
+| Nominatim / OSM | Geocoding | None (free) | — |
+| Rome2Rio API | Multi-modal ground transport | `ROME2RIO_KEY` | Public demo key |
+| open.er-api.com | Exchange rates | None (rate-limited) | — |
+| ExchangeRate-API | Exchange rates (higher limits) | `EXCHANGERATE_API_KEY` | open.er-api |
+| Teleport / Numbeo (static) | Cost-of-living estimates | None | Static data |
+| Curated static data | Visa requirements, nearby airports | None | — |
 
 ---
 
 ## Architecture
 
+**Framework:** [FastMCP](https://github.com/jlowin/fastmcp) — Python MCP server with `@mcp.tool()` decorator registration.
+
+**HTTP:** Single `httpx.AsyncClient` singleton (`utils/http.py`). Lazy-initialized, shared across all tools, closed on server shutdown.
+
+**Concurrency:** All multi-source tools use `asyncio.gather(..., return_exceptions=True)`. `plan_trip_package` fans out 8+ parallel HTTP calls.
+
+**Profile persistence:** `~/.wander_agent/profile.json`. JSON, schema versioned. Loaded/merged with defaults on every read so new fields never break existing profiles.
+
+**Nearby airports:** Static dict in `utils/airport_data.py` — 40+ airport pairs (JFK↔EWR↔LGA, LHR↔LGW↔STN, DXB↔SHJ↔AUH, etc.). Used by `plan_trip_package` and `cheap_anywhere_from` to automatically check alternate origin airports.
+
+**Fallback chain per tool:**
+- Flights: Amadeus API → Google Flights scraper
+- Hotels: Serpapi → fast-hotels scraper → booking.com deep-links
+- Activities: OpenTripMap → Wikidata SPARQL
+- Ground transport: Rome2Rio API → regional service deep-links (Amtrak, Greyhound, Megabus, FlixBus, BlaBlaBus, Trainline, IRCTC, 12Go, etc.)
+- Exchange rates: ExchangeRate-API → open.er-api.com
+
+**Confidence labels:** Every tool response includes `data_confidence`:
+- `scraped_live` — scraped in real time, may be stale within minutes
+- `live_forecast` — live from Open-Meteo API
+- `live_rss` — live from RSS feed
+- `curated_snapshot` — hand-curated static data, updated periodically
+- `estimated` — calculated from available data, not a direct quote
+- `wikidata_fallback` — from Wikidata SPARQL, variable quality
+- `deeplinks_only` — no live data, booking links only
+
+---
+
+## Limitations
+
+- **Flight prices**: Scraped from Google Flights. Fragile — if the scraper breaks, prices will be unavailable. Prices are always per-person; `cheapest_price_total` field gives the full group cost.
+- **Hotel prices**: Estimated from available data, not live quotes. Use booking deep-links for actual availability and pricing.
+- **Visa data**: Curated static snapshot. Policies change — always verify with the official embassy link returned in the response before booking.
+- **Travel advisories**: From US State Dept RSS. Typically accurate but may lag 24–48h behind official updates.
+- **Activities**: Without `OPENTRIPMAP_API_KEY`, falls back to Wikidata SPARQL which has inconsistent coverage outside major cities.
+- **Ground transport**: Deep-links to booking services. Route availability and pricing require clicking through to the provider.
+- **Score destinations**: Composite score is a heuristic — change `weights` to match your actual priorities.
+
+---
+
+## Development
+
+```bash
+# Install with dev deps
+uv pip install -e ".[dev]"
+# or: pip install -e ".[dev]"
+
+# Run tests
+python -m pytest tests/ -v
+
+# Check syntax
+python -m py_compile src/wander_agent/server.py
+
+# Run the server directly
+python -m wander_agent
+# or
+wander-agent
 ```
-src/wander_agent/
-├── server.py                  # FastMCP entry. Registers 27 tools.
-├── tools/
-│   ├── flights.py             # Google Flights via fast_flights
-│   ├── hotels.py              # Names + deeplinks + web-search hints
-│   ├── inspiration.py         # find_by_budget, cheap_anywhere, compare
-│   ├── budget.py              # Flexible-date optimizer
-│   ├── itinerary.py           # Multi-day orchestrator
-│   ├── score.py               # Multi-objective ranker
-│   ├── skiplagged.py          # Hidden-city ticketing
-│   ├── meetup.py              # N-traveler convergence
-│   ├── aurora.py              # KP-forecast + flight prices
-│   ├── mistake_fares.py       # Secret Flying + Flight Deal RSS
-│   ├── visa.py                # Passport visa requirements
-│   ├── advisory.py            # US State Dept RSS parser
-│   ├── events.py              # Ticketmaster Discovery
-│   ├── cost_of_living.py      # Curated dataset + currency
-│   ├── seasons.py             # 5-year climate analysis
-│   ├── weather.py             # Forecast or climatology
-│   ├── currency.py            # Frankfurter
-│   ├── activities.py          # OpenTripMap
-│   ├── destination.py         # REST Countries + Open-Meteo geocoding
-│   └── verify.py              # 4-source anti-hallucination check
-└── utils/
-    ├── http.py                # Shared async client
-    ├── config.py              # API key management
-    ├── cost_data.py           # Embedded cost-of-living dataset
-    └── airport_data.py        # Curated destinations + IATA↔city
-```
 
----
+### Adding a tool
 
-## Design choices worth knowing
+1. Create or add to an appropriate file in `src/wander_agent/tools/`
+2. Import the function in `src/wander_agent/server.py`
+3. Add an `@mcp.tool()` decorated wrapper function in `server.py`
+4. Add tests in `tests/`
 
-**Composes with Claude's web search.** Most tool outputs include a `suggest_web_search` field with concrete query suggestions. The server `instructions` field tells Claude when to use Wander Agent tools vs its own web search. Structured queries → tools. Live deals / reviews / recent news → web search.
-
-**Internal retry instead of prompt-level retry.** `fast_flights` occasionally serves stripped HTML. The flight tool retries across fetch modes (`common`, `fallback`) inside the function so the LLM never sees the failure.
-
-**Climatology for far-future dates.** Open-Meteo forecasts cover 16 days. Beyond that, the weather tool pulls 5 years of historical data for the same calendar dates and averages it.
-
-**Cached advisories.** US State Dept RSS is fetched once per process and cached 60 minutes.
-
-**Strict name matching in verify_place.** Earlier versions accepted "Le Cinquin" as a match for "Le Cinq". Now requires exact match or whole-string containment with reasonable length ratio.
-
-**IATA ↔ city translation for everything.** Tools accept either form. Internal helpers convert as needed for flight (IATA) vs hotel (city name) lookups.
-
-**Anti-hallucination by composition.** A "high confidence" verification means at least two of Wikidata, Open-Meteo geocoding, Foursquare, and OpenTripMap independently confirmed the place exists and the name matched strictly.
-
----
-
-## Honest limitations
-
-- **`fast_flights` and `fast_hotels` scrape Google.** Google can change HTML at any time. Tools retry across fetch modes; if everything fails the LLM can fall back to web search.
-- **Hotel prices are unreliable to scrape** (Google JS-renders them). Tool returns real hotel names + deeplinks. Setting `TRAVELPAYOUTS_TOKEN` adds live in-tool prices as a bonus.
-- **Skiplagged fares are real but legally risky.** Tool returns explicit warnings: carry-on only, one-way only, airline policies vary. Use at your own risk.
-- **Visa data is a curated snapshot.** Policies change. Tool always advises verifying with the official embassy before booking.
-- **Mistake fares are time-sensitive.** Often gone within hours of posting. Tool surfaces the signal; user has to act fast.
-- **State Department advisories reflect US perspective.** Other passports should also consult their own government's guidance.
-
----
-
-## License
-
-MIT. PRs welcome.
+The MCP server instructions (at the top of `server.py`) tell the agent how to compose tools. Update these when adding tools that should be called as part of multi-tool workflows.
