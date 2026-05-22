@@ -102,10 +102,6 @@ def _mock_all(router: respx.MockRouter) -> None:
     router.get(url__regex=r".*google\.com/travel/flights.*").mock(
         return_value=httpx.Response(200, text="<html></html>")
     )
-    # Rome2Rio
-    router.get("https://www.rome2rio.com/api/1.4/json/Search").mock(
-        return_value=httpx.Response(404)
-    )
     # Teleport / cost-of-living
     router.get(url__regex=r".*teleport\.org.*").mock(
         return_value=httpx.Response(200, json={"_embedded": {"city:urban_areas": []}})

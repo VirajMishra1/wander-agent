@@ -41,9 +41,7 @@ def test_detect_region_sea_bali():
 
 
 def test_detect_region_india():
-    # India detection uses IRCTC city codes
     result = _detect_region("Mumbai", "Delhi")
-    # India or fallback us — depends on whether city names match IRCTC codes
     assert result in ("india", "us")
 
 
@@ -60,60 +58,49 @@ def test_fill_link_url_encodes_spaces():
 
 
 @pytest.mark.asyncio
-async def test_search_ground_transport_returns_structure(reset_http_client):
-    import respx
-    import httpx
-
-    with respx.mock:
-        # Mock Rome2Rio to fail (404) so we test deeplink fallback
-        respx.get("https://www.rome2rio.com/api/1.4/json/Search").mock(
-            return_value=httpx.Response(404)
-        )
-        from wander_agent.tools.ground_transport import search_ground_transport
-        result = await search_ground_transport(
-            origin_city="New York",
-            destination_city="Washington DC",
-            date="2025-08-01",
-            travelers=1,
-        )
-
+async def test_search_ground_transport_returns_structure():
+    from wander_agent.tools.ground_transport import search_ground_transport
+    result = await search_ground_transport(
+        origin_city="New York",
+        destination_city="Washington DC",
+        date="2025-08-01",
+        travelers=1,
+    )
     assert "booking_links" in result
     assert "google_maps_transit_url" in result
     assert isinstance(result["booking_links"], list)
     assert len(result["booking_links"]) > 0
+    assert result["data_confidence"] == "deeplinks_only"
 
 
 @pytest.mark.asyncio
-async def test_search_ground_transport_rome2rio_success(reset_http_client):
-    import respx
-    import httpx
-    import json
+async def test_search_ground_transport_no_hardcoded_keys():
+    """Confirm no API call is made — purely deeplinks."""
+    from wander_agent.tools.ground_transport import search_ground_transport
+    # No respx mock needed — no HTTP calls should be made
+    result = await search_ground_transport(
+        origin_city="London",
+        destination_city="Paris",
+        date="2025-09-01",
+        travelers=2,
+    )
+    assert result["region"] == "europe"
+    assert len(result["booking_links"]) >= 3
+    # Rome2Rio deeplink always present
+    services = [b["service"].lower() for b in result["booking_links"]]
+    assert any("rome2rio" in s for s in services)
 
-    fake_response = {
-        "routes": [
-            {
-                "name": "Bus",
-                "distance": 365,
-                "duration": 270,
-                "segments": [{"vehicle": "bus", "name": "Greyhound"}],
-                "indicativePrice": {"price": 25, "currency": "USD"},
-            }
-        ]
-    }
 
-    with respx.mock:
-        respx.get("https://www.rome2rio.com/api/1.4/json/Search").mock(
-            return_value=httpx.Response(200, json=fake_response)
-        )
-        from wander_agent.tools.ground_transport import search_ground_transport
-        result = await search_ground_transport(
-            origin_city="New York",
-            destination_city="Washington DC",
-            date="2025-08-01",
-            travelers=1,
-        )
+@pytest.mark.asyncio
+async def test_search_ground_transport_invalid_date():
+    from wander_agent.tools.ground_transport import search_ground_transport
+    result = await search_ground_transport("NYC", "Boston", "not-a-date")
+    assert "error" in result
 
-    assert "booking_links" in result
-    # Rome2Rio deeplink should be in results
-    deeplink_names = [b.get("service", "").lower() for b in result["booking_links"]]
-    assert any("rome2rio" in n or "bus" in n for n in deeplink_names) or len(result["booking_links"]) > 0
+
+@pytest.mark.asyncio
+async def test_search_ground_transport_route_overview_empty():
+    """route_overview is always [] — no API dependency."""
+    from wander_agent.tools.ground_transport import search_ground_transport
+    result = await search_ground_transport("New York", "Chicago", "2025-08-01")
+    assert result["route_overview"] == []

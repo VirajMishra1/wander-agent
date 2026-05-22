@@ -1,21 +1,20 @@
 """Ground transport search — the missing leg of every trip.
 
-Covers buses, trains, and ferries between cities.
-Deeplinks + Rome2Rio API (no key needed for basic results via their web API).
+Covers buses, trains, and ferries between cities via booking deeplinks.
 
-Sources:
-  - Rome2Rio (undocumented web JSON) — multi-modal route overview
-  - FlixBus deeplink
-  - Amtrak deeplink (US rail)
-  - Greyhound deeplink
-  - Megabus deeplink
-  - OurBus deeplink
-  - BlaBlaCar Bus deeplink (Europe)
-  - Busbud deeplink (global bus)
-  - Trainline deeplink (Europe/UK rail)
-  - IRCTC deeplink (India rail)
-  - 12Go deeplink (SEA)
-  - Google Maps Transit deeplink
+Sources (all deeplinks, no API keys):
+  - Amtrak (US rail)
+  - Greyhound (US bus)
+  - Megabus (US + UK)
+  - OurBus (US Northeast)
+  - FlixBus (Europe + select US)
+  - BlaBlaCar Bus (Europe)
+  - Busbud (global, 50+ countries)
+  - Trainline (Europe/UK rail)
+  - IRCTC (India rail)
+  - 12Go (Southeast Asia)
+  - Rome2Rio (global multi-modal overview)
+  - Google Maps Transit
 """
 
 from __future__ import annotations
@@ -75,7 +74,7 @@ _IRCTC_CODES: dict[str, str] = {
     "surat": "ST", "amritsar": "ASR", "chandigarh": "CDG",
 }
 
-# City -> Rome2Rio slug
+
 def _slugify(city: str) -> str:
     return city.lower().strip().replace(" ", "-").replace(",", "").replace(".", "")
 
@@ -104,45 +103,6 @@ def _detect_region(origin: str, dest: str) -> str:
     return "us"
 
 
-async def _try_rome2rio(origin: str, destination: str) -> list[dict]:
-    """Query Rome2Rio undocumented web API for multi-modal route overview."""
-    from ..utils.http import get_client
-
-    client = await get_client()
-    try:
-        resp = await client.get(
-            "https://www.rome2rio.com/api/1.4/json/Search",
-            params={"oName": origin, "dName": destination, "oPos": "", "dPos": ""},
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                              "AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
-                "key": "Hnt4L9as",  # public demo key embedded in Rome2Rio's own JS
-            },
-            timeout=15.0,
-        )
-        if resp.status_code == 200:
-            routes = resp.json().get("routes", [])
-            out = []
-            for r in routes[:8]:
-                segs = r.get("segments", [])
-                out.append({
-                    "mode": r.get("name", ""),
-                    "duration_minutes": r.get("totalDuration", 0),
-                    "price_usd_approx": (
-                        round(r.get("indicativePrice", {}).get("price", 0) / 100, 2)
-                        if r.get("indicativePrice", {}).get("price")
-                        else None
-                    ),
-                    "via": [s.get("name", "") for s in segs if s.get("name")],
-                    "data_confidence": "estimated",
-                })
-            return out
-    except Exception:
-        pass
-    return []
-
-
 async def search_ground_transport(
     origin_city: str,
     destination_city: str,
@@ -152,9 +112,8 @@ async def search_ground_transport(
 ) -> dict:
     """Search bus, train, and ferry options between two cities.
 
-    Returns multi-modal route overview + direct booking links for all
-    relevant services (Amtrak, FlixBus, Greyhound, Megabus, Trainline, etc.).
-    Click the booking_links URLs to see live prices and buy tickets.
+    Returns direct booking deeplinks for all relevant services
+    (Amtrak, FlixBus, Greyhound, Megabus, Trainline, etc.).
     No API key required.
 
     Args:
@@ -184,7 +143,6 @@ async def search_ground_transport(
     irctc_origin = _IRCTC_CODES.get(origin_key, origin_key.upper()[:4])
     irctc_dest = _IRCTC_CODES.get(dest_key, dest_key.upper()[:4])
 
-    # Build booking links
     booking_links: list[dict] = []
     for service in services:
         template = _DEEPLINKS.get(service)
@@ -207,7 +165,7 @@ async def search_ground_transport(
             "data_confidence": "deeplink",
         })
 
-    # Rome2Rio deeplink (always add)
+    # Rome2Rio deeplink (always add — global multi-modal overview)
     booking_links.append({
         "service": "Rome2Rio",
         "url": _fill_link(
@@ -219,15 +177,11 @@ async def search_ground_transport(
         "data_confidence": "deeplink",
     })
 
-    # Google Maps Transit (always add)
     maps_url = _fill_link(
         _DEEPLINKS["google_maps_transit"],
         origin_city=origin,
         dest_city=dest,
     )
-
-    # Try Rome2Rio API for route overview
-    r2r_routes = await _try_rome2rio(origin, dest)
 
     return {
         "origin": origin,
@@ -235,13 +189,13 @@ async def search_ground_transport(
         "date": date,
         "travelers": travelers,
         "region": region,
-        "route_overview": r2r_routes,
+        "route_overview": [],
         "booking_links": booking_links,
         "google_maps_transit_url": maps_url,
-        "data_confidence": "live_routes" if r2r_routes else "deeplinks_only",
+        "data_confidence": "deeplinks_only",
         "note": (
-            "Click any booking_link URL to see live prices and buy tickets. "
-            "Route overview prices are indicative — final price on each service's site."
+            "Click any booking_link URL to see live prices and availability. "
+            "Rome2Rio shows all transport modes in one view."
         ),
         "suggest_web_search": [
             f"bus from {origin} to {dest} {date[:7]}",
