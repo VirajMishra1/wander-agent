@@ -1,6 +1,8 @@
-"""Local events during trip dates via Ticketmaster Discovery API."""
+"""Local events during trip dates — booking deeplinks, no API key required."""
 
 from __future__ import annotations
+
+from urllib.parse import quote_plus
 
 
 async def get_local_events(
@@ -11,77 +13,80 @@ async def get_local_events(
     keyword: str | None = None,
     max_results: int = 20,
 ) -> dict:
-    """Find concerts, shows, sports, and events happening during your trip.
+    """Find events happening at a destination during your trip dates.
 
-    The "Coldplay is in Paris while you're there" feature.
+    Returns deeplinks to Eventbrite, Meetup, Songkick, Bandsintown,
+    and Google Events for the city and date range. No API key required.
 
     Args:
         city: City name (e.g., "Paris", "New York")
         start_date: YYYY-MM-DD
         end_date: YYYY-MM-DD
-        classification: Filter by type: music, sports, arts, family, film, miscellaneous
-        keyword: Search keyword (artist, team, show name)
-        max_results: Max events to return
+        classification: music, sports, arts, family (used in search queries)
+        keyword: Artist, team, or show name
+        max_results: Ignored — kept for API compatibility
     """
-    from ..utils.config import TICKETMASTER_KEY
-    from ..utils.http import get_client
+    q = keyword or classification or "events"
+    city_enc = quote_plus(city)
+    kw_enc = quote_plus(q)
+    month = start_date[:7]
 
-    if not TICKETMASTER_KEY:
-        return {"error": "TICKETMASTER_API_KEY required. Free signup at developer.ticketmaster.com (5k/day)"}
+    booking_links = [
+        {
+            "service": "Eventbrite",
+            "url": f"https://www.eventbrite.com/d/{city_enc}/{kw_enc}/?start_date={start_date}&end_date={end_date}",
+            "coverage": "Global ticketed events",
+        },
+        {
+            "service": "Meetup",
+            "url": f"https://www.meetup.com/find/?location={city_enc}&keywords={kw_enc}&dateRange=customDate&customStartDate={start_date}&customEndDate={end_date}",
+            "coverage": "Community gatherings and social events",
+        },
+        {
+            "service": "Songkick",
+            "url": f"https://www.songkick.com/search?query={city_enc}&type=concert",
+            "coverage": "Concerts and live music",
+        },
+        {
+            "service": "Bandsintown",
+            "url": f"https://www.bandsintown.com/c/{city_enc}?came_from=257",
+            "coverage": "Concerts and live music",
+        },
+        {
+            "service": "Google Events",
+            "url": f"https://www.google.com/search?q={kw_enc}+events+in+{city_enc}+{quote_plus(month)}",
+            "coverage": "Aggregated local events",
+        },
+        {
+            "service": "Facebook Events",
+            "url": f"https://www.facebook.com/events/search/?q={kw_enc}&location={city_enc}",
+            "coverage": "Local community events",
+        },
+        {
+            "service": "Resident Advisor",
+            "url": f"https://ra.co/events?location={city_enc.lower()}",
+            "coverage": "Electronic music and club events",
+        },
+    ]
 
-    client = await get_client()
-    params: dict = {
-        "apikey": TICKETMASTER_KEY,
-        "city": city,
-        "startDateTime": f"{start_date}T00:00:00Z",
-        "endDateTime": f"{end_date}T23:59:59Z",
-        "size": min(max_results, 200),
-        "sort": "date,asc",
-    }
-    if classification:
-        params["classificationName"] = classification
+    suggest_web_search = [
+        f"events in {city} {month}",
+        f"{q} {city} {start_date[:7]}",
+        f"things to do {city} {start_date} to {end_date}",
+    ]
     if keyword:
-        params["keyword"] = keyword
+        suggest_web_search.insert(0, f"{keyword} {city} concert tour date {month}")
 
-    try:
-        resp = await client.get(
-            "https://app.ticketmaster.com/discovery/v2/events.json",
-            params=params,
-        )
-        if resp.status_code != 200:
-            return {"error": f"Ticketmaster API returned {resp.status_code}"}
-
-        data = resp.json()
-        events_raw = data.get("_embedded", {}).get("events", [])
-
-        events = []
-        for e in events_raw[:max_results]:
-            classifications = e.get("classifications", [{}])[0] if e.get("classifications") else {}
-            venue = e.get("_embedded", {}).get("venues", [{}])[0] if e.get("_embedded", {}).get("venues") else {}
-            prices = e.get("priceRanges", [{}])[0] if e.get("priceRanges") else {}
-
-            events.append({
-                "name": e.get("name", ""),
-                "type": classifications.get("segment", {}).get("name", ""),
-                "genre": classifications.get("genre", {}).get("name", ""),
-                "date": e.get("dates", {}).get("start", {}).get("localDate", ""),
-                "time": e.get("dates", {}).get("start", {}).get("localTime", ""),
-                "venue": venue.get("name", ""),
-                "venue_address": venue.get("address", {}).get("line1", ""),
-                "price_min": prices.get("min"),
-                "price_max": prices.get("max"),
-                "currency": prices.get("currency", ""),
-                "ticket_url": e.get("url", ""),
-                "image": (e.get("images", [{}])[0] if e.get("images") else {}).get("url", ""),
-            })
-
-        return {
-            "city": city,
-            "period": {"start": start_date, "end": end_date},
-            "total_found": data.get("page", {}).get("totalElements", len(events)),
-            "results_count": len(events),
-            "events": events,
-            "source": "Ticketmaster Discovery",
-        }
-    except Exception as e:
-        return {"error": str(e)}
+    return {
+        "city": city,
+        "start_date": start_date,
+        "end_date": end_date,
+        "classification": classification,
+        "keyword": keyword,
+        "results_count": 0,
+        "events": [],
+        "booking_links": booking_links,
+        "data_confidence": "deeplinks_only",
+        "note": "Click any link to browse live events. Eventbrite and Google Events have the widest coverage.",
+        "suggest_web_search": suggest_web_search,
+    }

@@ -8,7 +8,6 @@ Free APIs for hotels are scarce. This tool provides three layers:
    user's exact dates. Click-through gives live prices.
 3. Suggested web-search queries the LLM can run for live prices/reviews.
 
-If TRAVELPAYOUTS_TOKEN is set, Hotellook prices are also returned. Optional.
 """
 
 from __future__ import annotations
@@ -76,59 +75,6 @@ async def _get_fast_hotels_names(city: str, check_in: str, check_out: str, adult
     return hotels[:10]
 
 
-async def _hotellook_prices(city: str, check_in: str, check_out: str, adults: int,
-                             currency: str, max_results: int) -> list[dict]:
-    """Optional: if TRAVELPAYOUTS_TOKEN is set, fetch live prices via Hotellook."""
-    from ..utils.config import TRAVELPAYOUTS_TOKEN, TRAVELPAYOUTS_MARKER
-    from ..utils.http import get_client
-
-    if not TRAVELPAYOUTS_TOKEN:
-        return []
-
-    client = await get_client()
-    params: dict = {
-        "location": city,
-        "checkIn": check_in,
-        "checkOut": check_out,
-        "currency": currency.lower(),
-        "adults": adults,
-        "limit": max_results,
-        "token": TRAVELPAYOUTS_TOKEN,
-    }
-    if TRAVELPAYOUTS_MARKER:
-        params["marker"] = TRAVELPAYOUTS_MARKER
-
-    try:
-        resp = await client.get(
-            "https://engine.hotellook.com/api/v2/cache.json",
-            params=params,
-            timeout=20.0,
-        )
-        if resp.status_code != 200:
-            return []
-        data = resp.json()
-        if not isinstance(data, list):
-            return []
-
-        nights = (datetime.strptime(check_out, "%Y-%m-%d") - datetime.strptime(check_in, "%Y-%m-%d")).days
-        hotels = []
-        for h in data[:max_results]:
-            price_from = float(h.get("priceFrom", 0))
-            if not price_from:
-                continue
-            hotels.append({
-                "name": h.get("hotelName", "Unknown"),
-                "stars": h.get("stars"),
-                "price_total": price_from,
-                "price_per_night": round(price_from / max(nights, 1), 2),
-                "currency": currency.upper(),
-                "booking_url": f"https://search.hotellook.com/hotels?hotelId={h.get('hotelId')}&checkIn={check_in}&checkOut={check_out}&adults={adults}",
-            })
-        hotels.sort(key=lambda x: x["price_total"])
-        return hotels
-    except Exception:
-        return []
-
 
 async def search_hotels(
     city: str,
@@ -141,23 +87,20 @@ async def search_hotels(
     price_range: str | None = None,
     ratings: str | None = None,
 ) -> dict:
-    """Search hotels with hybrid strategy.
+    """Search hotels — scrapes Google Hotels for names, returns booking deeplinks.
 
-    Returns: real hotel names (Google Hotels scrape) + deeplinks to
-    Booking.com / Google Hotels / Airbnb for live prices + suggested web
-    searches the LLM can run for reviews. Live prices from Hotellook only
-    if TRAVELPAYOUTS_TOKEN is configured (optional).
+    No API key required. Use booking_links for live prices.
 
     Args:
         city: City name (e.g., "Paris", "Tokyo")
         check_in: YYYY-MM-DD
         check_out: YYYY-MM-DD
         adults: Number of guests
-        rooms: Number of rooms (passed to deeplinks)
+        rooms: Number of rooms
         max_results: Max hotel names to return
-        currency: USD, EUR, etc. (Hotellook only)
-        price_range: "100-300" (Hotellook only)
-        ratings: "3,4,5" (Hotellook only)
+        currency: Currency code for display
+        price_range: Ignored (kept for compatibility)
+        ratings: Ignored (kept for compatibility)
     """
     try:
         nights = (datetime.strptime(check_out, "%Y-%m-%d") - datetime.strptime(check_in, "%Y-%m-%d")).days
@@ -167,28 +110,19 @@ async def search_hotels(
     if nights <= 0:
         return {"error": "check_out must be after check_in."}
 
-    names_task = _get_fast_hotels_names(city, check_in, check_out, adults)
-    prices_task = _hotellook_prices(city, check_in, check_out, adults, currency, max_results)
-    names, hotellook_hotels = await asyncio.gather(names_task, prices_task)
+    names = await _get_fast_hotels_names(city, check_in, check_out, adults)
 
-    # Merge: if hotellook has data, prefer it; otherwise use scraped names
-    if hotellook_hotels:
-        hotels = hotellook_hotels[:max_results]
-        cheapest = hotels[0]["price_per_night"]
-        source = "hotellook (live prices)"
-    else:
-        hotels = [
-            {
-                "name": h["name"],
-                "amenities": h["amenities"],
-                "price_per_night": None,
-                "price_total": None,
-                "note": "Live prices not available — set TRAVELPAYOUTS_TOKEN or use the booking_links below.",
-            }
-            for h in names[:max_results]
-        ]
-        cheapest = None
-        source = "google_hotels (names only — use deeplinks for live prices)"
+    hotels = [
+        {
+            "name": h["name"],
+            "amenities": h["amenities"],
+            "price_per_night": None,
+            "price_total": None,
+        }
+        for h in names[:max_results]
+    ]
+    cheapest = None
+    source = "google_hotels_scrape"
 
     return {
         "city": city,

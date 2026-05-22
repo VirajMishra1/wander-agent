@@ -296,8 +296,6 @@ async def tool_search_hotels(
     """PLANNING: Search hotels in a city.
 
     Uses Google Hotels names through fast_hotels plus booking deeplinks.
-    Optional Hotellook prices are returned when TRAVELPAYOUTS_TOKEN is set.
-
     Args:
         city: City name (e.g., "Paris", "Tokyo") - NOT IATA code
         check_in: YYYY-MM-DD
@@ -306,8 +304,8 @@ async def tool_search_hotels(
         rooms: Number of rooms
         max_results: Max results
         currency: USD, EUR, etc.
-        price_range: "100-300" (Hotellook only)
-        ratings: "3,4,5" (Hotellook only)
+        price_range: "100-300"
+        ratings: "3,4,5"
     """
     return await search_hotels(city, check_in, check_out, adults, rooms,
                                 max_results, currency, price_range, ratings)

@@ -1,35 +1,51 @@
-"""Activities and attractions using OpenTripMap API."""
+"""Activities and attractions via Wikidata SPARQL (no API key required)."""
 
 from __future__ import annotations
 
 
-async def _search_activities_wikidata(
+CATEGORIES = {
+    "culture": "Q570116",
+    "nature": "Q1286517",
+    "food": "Q571",
+    "shopping": "Q1311958",
+    "nightlife": "Q1627595",
+    "architecture": "Q811979",
+    "historic": "Q210272",
+    "museums": "Q33506",
+    "religion": "Q24398318",
+    "art": "Q3305213",
+    "parks": "Q22698",
+    "sport": "Q941594",
+}
+
+
+async def search_activities(
     latitude: float,
     longitude: float,
-    radius_km: int,
-    category: str | None,
-    max_results: int,
+    radius_km: int = 10,
+    category: str | None = None,
+    max_results: int = 15,
 ) -> dict:
-    """Wikidata SPARQL fallback for attractions near a location. No API key needed."""
+    """Search for activities and attractions near a location using Wikidata.
+
+    No API key required.
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+        radius_km: Search radius in kilometers (1-50)
+        category: Filter: culture, nature, food, shopping, nightlife,
+                  architecture, historic, museums, religion, art, parks, sport
+        max_results: Maximum number of results (1-50)
+    """
     from ..utils.http import get_client
 
     client = await get_client()
-    radius_m = min(radius_km, 50) * 1000
+    radius_km = min(int(radius_km), 50)
 
-    # Map our category labels to Wikidata instance-of values
-    _WD_KINDS: dict[str, str] = {
-        "museums": "Q33506",
-        "historic": "Q210272",
-        "culture": "Q570116",
-        "religion": "Q24398318",
-        "architecture": "Q811979",
-        "nature": "Q1286517",
-        "parks": "Q22698",
-        "art": "Q3305213",
-    }
     kind_filter = ""
-    if category and category.lower() in _WD_KINDS:
-        qid = _WD_KINDS[category.lower()]
+    if category and category.lower() in CATEGORIES:
+        qid = CATEGORIES[category.lower()]
         kind_filter = f"?item wdt:P31/wdt:P279* wd:{qid} ."
 
     sparql = f"""
@@ -59,7 +75,7 @@ async def _search_activities_wikidata(
             results = []
             for b in bindings:
                 name = b.get("itemLabel", {}).get("value", "")
-                if not name or name.startswith("Q"):  # skip unnamed items
+                if not name or name.startswith("Q"):
                     continue
                 coord_str = b.get("coord", {}).get("value", "")
                 lat_r = lon_r = None
@@ -77,7 +93,7 @@ async def _search_activities_wikidata(
                     "website": "",
                     "image": "",
                     "rating": None,
-                    "data_confidence": "wikidata_fallback",
+                    "data_confidence": "wikidata",
                 })
                 if len(results) >= max_results:
                     break
@@ -88,11 +104,11 @@ async def _search_activities_wikidata(
                 "results_count": len(results),
                 "activities": results,
                 "data_source": "wikidata_sparql",
-                "data_confidence": "wikidata_fallback",
-                "note": "Set OPENTRIPMAP_API_KEY for richer attraction data.",
+                "data_confidence": "wikidata",
             }
     except Exception:
         pass
+
     return {
         "location": {"latitude": latitude, "longitude": longitude},
         "radius_km": radius_km,
@@ -100,106 +116,8 @@ async def _search_activities_wikidata(
         "results_count": 0,
         "activities": [],
         "data_source": "none",
-        "note": "Set OPENTRIPMAP_API_KEY for attraction data. Wikidata query also failed.",
         "suggest_web_search": [
             f"top attractions near {latitude},{longitude}",
             f"things to do {category or 'sightseeing'} near me",
         ],
-    }
-
-
-CATEGORIES = {
-    "culture": "cultural",
-    "nature": "natural",
-    "food": "foods",
-    "shopping": "shops",
-    "nightlife": "amusements",
-    "architecture": "architecture",
-    "historic": "historic",
-    "museums": "museums",
-    "religion": "religion",
-    "sport": "sport",
-}
-
-
-async def search_activities(
-    latitude: float,
-    longitude: float,
-    radius_km: int = 10,
-    category: str | None = None,
-    max_results: int = 15,
-) -> dict:
-    """Search for activities and attractions near a location.
-
-    Args:
-        latitude: Location latitude
-        longitude: Location longitude
-        radius_km: Search radius in kilometers (1-50)
-        category: Filter by category: culture, nature, food, shopping, nightlife, architecture, historic, museums, religion, sport
-        max_results: Maximum number of results (1-50)
-    """
-    from ..utils.config import OPENTRIPMAP_KEY
-    from ..utils.http import get_client
-
-    if not OPENTRIPMAP_KEY:
-        # Wikidata SPARQL fallback — no API key needed, returns real attractions
-        return await _search_activities_wikidata(latitude, longitude, radius_km, category, max_results)
-
-    client = await get_client()
-    base = "https://api.opentripmap.com/0.1/en/places"
-
-    params: dict = {
-        "lat": latitude,
-        "lon": longitude,
-        "radius": min(radius_km, 50) * 1000,
-        "limit": min(max_results, 50),
-        "apikey": OPENTRIPMAP_KEY,
-        "rate": 3,  # minimum rating
-        "format": "json",
-    }
-    if category and category.lower() in CATEGORIES:
-        params["kinds"] = CATEGORIES[category.lower()]
-
-    resp = await client.get(f"{base}/radius", params=params)
-    resp.raise_for_status()
-    places = resp.json()
-
-    results = []
-    for place in places:
-        if not place.get("name"):
-            continue
-
-        # Get details for top results
-        detail = {}
-        if place.get("xid") and len(results) < max_results:
-            try:
-                detail_resp = await client.get(
-                    f"{base}/xid/{place['xid']}",
-                    params={"apikey": OPENTRIPMAP_KEY},
-                )
-                if detail_resp.status_code == 200:
-                    detail = detail_resp.json()
-            except Exception:
-                pass
-
-        results.append({
-            "name": place.get("name", ""),
-            "kind": place.get("kinds", "").split(",")[0] if place.get("kinds") else "",
-            "distance_m": place.get("dist"),
-            "latitude": place.get("point", {}).get("lat"),
-            "longitude": place.get("point", {}).get("lon"),
-            "description": (detail.get("wikipedia_extracts") or {}).get("text", "")[:300] if detail else "",
-            "website": detail.get("url", ""),
-            "image": detail.get("image", ""),
-            "rating": place.get("rate"),
-        })
-
-    results.sort(key=lambda x: -(x.get("rating") or 0))
-
-    return {
-        "location": {"latitude": latitude, "longitude": longitude},
-        "radius_km": radius_km,
-        "category": category,
-        "results_count": len(results),
-        "activities": results[:max_results],
     }
