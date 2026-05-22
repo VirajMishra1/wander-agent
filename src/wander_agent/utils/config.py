@@ -24,12 +24,9 @@ def require_key(name: str) -> str:
     return val
 
 
-# Primary: Travelpayouts (flights + hotels). Free, no approval.
+# Hotels: Travelpayouts Hotellook. Free, no approval.
 TRAVELPAYOUTS_TOKEN = get_key("TRAVELPAYOUTS_TOKEN")
 TRAVELPAYOUTS_MARKER = get_key("TRAVELPAYOUTS_MARKER")  # optional affiliate id
-
-# Flight fallback: Kiwi Tequila (free sandbox)
-KIWI_API_KEY = get_key("KIWI_API_KEY")
 
 # Activities + verification
 OPENTRIPMAP_KEY = get_key("OPENTRIPMAP_API_KEY")

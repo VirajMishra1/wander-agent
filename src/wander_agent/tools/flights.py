@@ -1,10 +1,11 @@
 """Flight search via fast_flights (Google Flights scraper).
 
-Primary: fast_flights — real Google Flights data, no auth.
-Fallback: Kiwi Tequila — when fast_flights HTML changes or rate-limits.
+Real Google Flights data, no API key required.
+Has retry across fetch modes (common, fallback) to handle stripped-HTML
+responses. Falls back to a clear error if Google blocks/changes layout.
 
-Note: fast_flights scrapes Google Flights. Stability depends on Google's HTML
-remaining stable. If queries start failing, the Kiwi fallback kicks in.
+Note: Kiwi Tequila was previously the fallback but their public sandbox
+closed in 2024 (partner-only now).
 """
 
 from __future__ import annotations
@@ -148,71 +149,6 @@ async def _search_fast_flights(
     }
 
 
-async def _search_kiwi(
-    origin: str, destination: str, departure_date: str, return_date: str | None,
-    adults: int, currency: str, max_results: int, nonstop_only: bool,
-) -> dict | None:
-    from ..utils.config import KIWI_API_KEY
-    from ..utils.http import get_client
-
-    if not KIWI_API_KEY:
-        return None
-
-    client = await get_client()
-    dep_kiwi = datetime.strptime(departure_date, "%Y-%m-%d").strftime("%d/%m/%Y")
-    params: dict = {
-        "fly_from": origin.upper(),
-        "fly_to": destination.upper(),
-        "date_from": dep_kiwi,
-        "date_to": dep_kiwi,
-        "adults": adults,
-        "curr": currency.upper(),
-        "limit": max_results,
-    }
-    if return_date:
-        ret_kiwi = datetime.strptime(return_date, "%Y-%m-%d").strftime("%d/%m/%Y")
-        params["return_from"] = ret_kiwi
-        params["return_to"] = ret_kiwi
-    if nonstop_only:
-        params["max_stopovers"] = 0
-
-    try:
-        resp = await client.get(
-            "https://api.tequila.kiwi.com/v2/search",
-            params=params,
-            headers={"apikey": KIWI_API_KEY},
-            timeout=20.0,
-        )
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
-
-        flights = []
-        for offer in data.get("data", [])[:max_results]:
-            segments = []
-            for route in offer.get("route", []):
-                segments.append({
-                    "airline": route.get("airline", ""),
-                    "flight_number": f"{route.get('airline', '')}{route.get('flight_no', '')}",
-                    "departure_airport": route.get("flyFrom", ""),
-                    "departure_time": route.get("local_departure", ""),
-                    "arrival_airport": route.get("flyTo", ""),
-                    "arrival_time": route.get("local_arrival", ""),
-                })
-            flights.append({
-                "price": float(offer.get("price", 0)),
-                "currency": currency.upper(),
-                "duration_minutes": offer.get("duration", {}).get("total", 0) // 60,
-                "stops": max(len(segments) - 1, 0),
-                "segments": segments,
-                "booking_url": offer.get("deep_link", ""),
-            })
-        flights.sort(key=lambda x: x["price"])
-        return {"flights": flights, "source": "kiwi_tequila"}
-    except Exception:
-        return None
-
-
 async def search_flights(
     origin: str,
     destination: str,
@@ -264,26 +200,6 @@ async def search_flights(
             ],
         }
 
-    # Fallback to Kiwi
-    kw = await _search_kiwi(
-        origin, destination, departure_date, return_date,
-        adults, currency, max_results, nonstop_only,
-    )
-    if kw and kw["flights"]:
-        return {
-            "origin": origin,
-            "destination": destination,
-            "departure_date": departure_date,
-            "return_date": return_date,
-            "passengers": adults,
-            "results_count": len(kw["flights"]),
-            "flights": kw["flights"],
-            "cheapest_price": kw["flights"][0]["price"],
-            "currency": currency.upper(),
-            "data_source": "kiwi_tequila (fallback)",
-            "note": "Google Flights scraper unavailable. Used Kiwi.",
-        }
-
     return {
         "origin": origin,
         "destination": destination,
@@ -291,5 +207,5 @@ async def search_flights(
         "return_date": return_date,
         "results_count": 0,
         "flights": [],
-        "error": "Both Google Flights scraper and Kiwi fallback unavailable. Set KIWI_API_KEY in .env for fallback.",
+        "error": "Google Flights scraper unavailable (Google may be rate-limiting or HTML changed). Try again in a few minutes.",
     }

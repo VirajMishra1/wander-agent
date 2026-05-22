@@ -27,7 +27,7 @@ There are 21 tools. They fall into four groups.
 
 ### Planning (you do)
 
-- `search_flights` — **Google Flights data via the `fast_flights` library**. No API key needed for the primary path. Kiwi Tequila as fallback. Prices come back in your requested currency (auto-converted from whatever Google returns).
+- `search_flights` — **Google Flights data via the `fast_flights` library**. No API key. Prices auto-converted to your requested currency. Internal retry across fetch modes if Google serves stripped HTML.
 - `search_hotels` — Hotellook (Travelpayouts). The only viable free hotel API; signup is two minutes with no approval.
 - `plan_itinerary` — orchestrates weather, activities, country info, and currency into a day-by-day plan
 - `optimize_budget` — flexible-date search for cheapest flight + hotel combination
@@ -63,15 +63,17 @@ Thirteen APIs. Nine require no authentication. The remaining four have free tier
 | Wikidata SPARQL | Place verification | none |
 | US State Department RSS | Travel advisories | none |
 | Curated dataset | Cost of living | none (in-repo) |
-| Kiwi Tequila | Flight fallback + inspiration (anywhere search) | free sandbox |
+| Curated airport list | Inspiration tools (looped fast_flights) | none (in-repo) |
 | Hotellook (Travelpayouts) | Hotels | free token, no approval |
 | OpenTripMap | Attractions and POIs | free key |
 | Foursquare | Secondary verification source | free 200k/month |
 | Ticketmaster Discovery | Local events | free 5k/day |
 
-**On Google Flights specifically.** Google killed the official QPX Express API in 2018 and never released a replacement. There is no public, free, official Google Flights API. The `fast_flights` Python library scrapes Google Flights' protobuf-encoded responses — it returns the actual flight inventory you'd see in the Google UI, including airlines, times, and prices. The trade-off: scrapers can break when Google changes their HTML. When that happens, this server automatically falls back to Kiwi Tequila, which is a stable real API.
+**On Google Flights specifically.** Google killed the official QPX Express API in 2018 and never released a replacement. There is no public, free, official Google Flights API. The `fast_flights` Python library scrapes Google Flights' protobuf-encoded responses — it returns the actual flight inventory you'd see in the Google UI, including airlines, times, and prices. The trade-off: scrapers can break when Google changes their HTML. The tool retries across multiple fetch modes to handle most flakiness.
 
-For the bare minimum you only need a Kiwi token (for inspiration tools) and a Travelpayouts token (for hotels). Both are free signups with no approval. Everything else is optional.
+**On the inspiration tools specifically.** "Find me anywhere cheap from JFK" is hard without an aggregator API. We don't have one (Kiwi Tequila closed public sandbox in 2024, partner-only now). Instead, the inspiration tools loop `fast_flights` over a curated list of ~40 popular global destinations in parallel. Each call takes ~1-3s, and with batching of 5 concurrent the full sweep finishes in 10-30 seconds. You can scope it by region (`europe`, `asia`, etc.) to make it faster.
+
+For the bare minimum useful agent you only need a Travelpayouts token (for hotels). It's a free signup with no approval. Everything else is optional.
 
 ## How Wander Agent composes with Claude's web search
 
@@ -176,7 +178,7 @@ src/wander_agent/
 ├── server.py              # FastMCP entry point. Registers 21 tools.
 ├── tools/
 │   ├── inspiration.py     # find_destinations_by_budget, cheap_anywhere_from, compare_destinations
-│   ├── flights.py         # Travelpayouts → Kiwi fallback chain
+│   ├── flights.py         # fast_flights (Google Flights scraper)
 │   ├── hotels.py          # Hotellook
 │   ├── itinerary.py       # Orchestrator: weather + activities + country info in parallel
 │   ├── budget.py          # Flexible-date optimizer (asyncio.gather over date combos)
@@ -200,7 +202,7 @@ Every tool is a `@mcp.tool()`-decorated async function. They share a single conn
 
 ## Design choices worth knowing
 
-**Fallback chains over single sources.** Flights try Travelpayouts first, then Kiwi. The chain is in code, not in prompts, so the LLM doesn't have to retry.
+**Internal retry instead of prompt-level retry.** `fast_flights` occasionally returns stripped HTML. The flight tool retries across fetch modes (`common`, `fallback`) inside the function so the LLM never sees the failure.
 
 **Climatology for far-future dates.** Open-Meteo's forecast horizon is 16 days. Anything beyond that, the weather tool pulls five years of historical data for the exact same calendar dates and averages it. You get a reasonable answer for "what's the weather in Tokyo in November" without lying that it's a real forecast.
 
