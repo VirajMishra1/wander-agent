@@ -23,6 +23,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "pydantic>=2.0",
     "fast-flights>=2.2",
+    "fast-hotels>=0.2.1",
 ]
 
 [project.scripts]

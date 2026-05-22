@@ -28,7 +28,7 @@ There are 21 tools. They fall into four groups.
 ### Planning (you do)
 
 - `search_flights` — **Google Flights data via the `fast_flights` library**. No API key. Prices auto-converted to your requested currency. Internal retry across fetch modes if Google serves stripped HTML.
-- `search_hotels` — Hotellook (Travelpayouts). The only viable free hotel API; signup is two minutes with no approval.
+- `search_hotels` — **Hybrid strategy, no API key required.** Returns real hotel names from Google Hotels (via `fast_hotels`) plus constructed Booking.com/Google Hotels/Airbnb deeplinks for live prices plus suggested web-search queries the LLM can run for reviews. If `TRAVELPAYOUTS_TOKEN` is set as an optional bonus, also returns live Hotellook prices in-tool.
 - `plan_itinerary` — orchestrates weather, activities, country info, and currency into a day-by-day plan
 - `optimize_budget` — flexible-date search for cheapest flight + hotel combination
 
@@ -64,7 +64,9 @@ Thirteen APIs. Nine require no authentication. The remaining four have free tier
 | US State Department RSS | Travel advisories | none |
 | Curated dataset | Cost of living | none (in-repo) |
 | Curated airport list | Inspiration tools (looped fast_flights) | none (in-repo) |
-| Hotellook (Travelpayouts) | Hotels | free token, no approval |
+| **Google Hotels** (via `fast_hotels`) | **Hotel names (primary)** | **none — scraper library** |
+| Booking.com / Airbnb / Google Hotels deeplinks | Live price click-through | none (URL construction) |
+| Hotellook (Travelpayouts) | Optional in-tool live prices | optional free token |
 | OpenTripMap | Attractions and POIs | free key |
 | Foursquare | Secondary verification source | free 200k/month |
 | Ticketmaster Discovery | Local events | free 5k/day |
@@ -73,7 +75,9 @@ Thirteen APIs. Nine require no authentication. The remaining four have free tier
 
 **On the inspiration tools specifically.** "Find me anywhere cheap from JFK" is hard without an aggregator API. We don't have one (Kiwi Tequila closed public sandbox in 2024, partner-only now). Instead, the inspiration tools loop `fast_flights` over a curated list of ~40 popular global destinations in parallel. Each call takes ~1-3s, and with batching of 5 concurrent the full sweep finishes in 10-30 seconds. You can scope it by region (`europe`, `asia`, etc.) to make it faster.
 
-For the bare minimum useful agent you only need a Travelpayouts token (for hotels). It's a free signup with no approval. Everything else is optional.
+**On hotels specifically.** Free hotel pricing APIs are dying for indie developers. Travelpayouts/Hotellook still works but their token UI is hard to navigate. Booking.com partner API is approval-only. Xotelo's endpoints changed. We went hybrid: the tool scrapes Google Hotels for real hotel names (the only part that scrapes reliably), constructs deeplinks to Booking.com / Google Hotels / Airbnb for live prices via click-through, and emits `suggest_web_search` queries so Claude can fetch reviews and rates via its own web search. If a user does set `TRAVELPAYOUTS_TOKEN`, Hotellook prices appear in-tool as a bonus.
+
+**For the bare minimum useful agent, you need zero API keys.** Flights, hotels, weather, advisories, currency, cost-of-living, scoring, and verification all work without any signup. Optional keys upgrade certain features (events, in-tool hotel prices, richer attractions, third verification source).
 
 ## How Wander Agent composes with Claude's web search
 
@@ -179,7 +183,7 @@ src/wander_agent/
 ├── tools/
 │   ├── inspiration.py     # find_destinations_by_budget, cheap_anywhere_from, compare_destinations
 │   ├── flights.py         # fast_flights (Google Flights scraper)
-│   ├── hotels.py          # Hotellook
+│   ├── hotels.py          # fast_hotels names + deeplinks + web-search hints + optional Hotellook
 │   ├── itinerary.py       # Orchestrator: weather + activities + country info in parallel
 │   ├── budget.py          # Flexible-date optimizer (asyncio.gather over date combos)
 │   ├── score.py           # Multi-objective ranker
@@ -216,7 +220,8 @@ Every tool is a `@mcp.tool()`-decorated async function. They share a single conn
 
 ## Limitations
 
-- Travelpayouts data is cached from search aggregators. Live availability for booking still requires going through the affiliate URLs.
+- Hotel prices are unreliable to scrape (Google JS-renders them). The tool gives you real hotel names plus deeplinks for click-through pricing. Setting `TRAVELPAYOUTS_TOKEN` upgrades this with live prices in-tool.
+- `fast_flights` and `fast_hotels` are scraper libraries. They can break when Google changes HTML. The tools retry across fetch modes; if everything fails the LLM can fall back to web search.
 - The cost-of-living dataset is a snapshot. It covers ~100 cities directly and falls back to country-level medians for unlisted places.
 - The Ticketmaster events tool covers North America and most of Europe well. Coverage in Asia and Latin America is patchier.
 - The State Department advisories reflect US perspective. Travelers from other countries should also check their own government's guidance.
