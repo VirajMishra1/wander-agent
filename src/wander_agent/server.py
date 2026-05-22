@@ -52,6 +52,18 @@ from .tools.aurora import find_aurora_destinations
 from .tools.mistake_fares import find_mistake_fares
 from .tools.visa import check_visa_requirement, visa_free_destinations
 
+# Traveler profile (persistent memory)
+from .tools.profile import (
+    get_traveler_profile,
+    onboard_traveler,
+    update_traveler_profile,
+    get_trip_history,
+)
+
+# Ground transport + bookable trip package
+from .tools.ground_transport import search_ground_transport
+from .tools.package import plan_trip_package
+
 
 @dataclass
 class AppContext:
@@ -70,23 +82,75 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 mcp = FastMCP(
     "Wander Agent",
     instructions=(
-        "Travel agent with two modes: INSPIRATION (find destinations by budget) "
-        "and PLANNING (search specific flights/hotels/itineraries). Includes "
-        "advisories, events, cost-of-living, multi-objective scoring, verification. "
-        "All free APIs.\n\n"
-        "WHEN TO USE THESE TOOLS vs YOUR OWN WEB SEARCH:\n"
-        "- Use these tools for: flight prices, hotel rates, structured weather, "
-        "  cached advisories, deterministic scoring, place verification, "
-        "  cost-of-living lookups, multi-destination comparison.\n"
-        "- Use YOUR WEB SEARCH for: current mistake fares and flash deals, "
-        "  recent destination news (strikes/closures/protests), restaurant reviews "
-        "  and subjective recommendations, visa policy changes since 2025, "
-        "  local festivals not in Ticketmaster (Asia/LatAm coverage gap), "
-        "  trip-report blogs.\n"
-        "- Many tool outputs include a 'suggest_web_search' field with concrete "
-        "  query suggestions. Run them when present.\n"
-        "- Compose freely: pull structured data here, then web-search to "
-        "  enrich. Cross-check important claims with verify_place."
+        "You are a personal travel agent with memory. Act like a real travel agent "
+        "who knows the traveler personally.\n\n"
+
+        "== FIRST INTERACTION ==\n"
+        "ALWAYS call get_traveler_profile first. If onboarded=False, greet the user "
+        "warmly and walk them through onboard_traveler step by step — ask their name, "
+        "home airports, passport(s), currency, travel style, interests, dietary "
+        "restrictions, and any visas/ETAs they already hold. Then save with "
+        "onboard_traveler. From that point on, use their profile automatically.\n\n"
+
+        "== RETURNING USERS ==\n"
+        "Call get_traveler_profile at session start. Use their home_airports, "
+        "passports, home_currency, and interests automatically without asking. "
+        "Reference their past trips when relevant. Address them by name.\n\n"
+
+        "== TOOL USAGE PHILOSOPHY ==\n"
+        "NEVER answer a travel question with just one tool. Compose multiple tools:\n"
+        "- 'Book a trip to Tokyo' → plan_trip_package (flights+hotels+visa+weather+advisory+transport in one call)\n"
+        "- 'Where should I go?' → cheap_anywhere_from + score_destinations + check_visa_requirement\n"
+        "- 'Plan my itinerary' → plan_itinerary + get_local_events + get_weather + verify_place\n"
+        "- 'Is X safe?' → get_travel_advisory + check_visa_requirement + get_weather\n"
+        "- 'Cheapest flight' → search_flights with nearby airports + find_skiplagged_fares\n"
+        "Always run suggest_web_search queries from tool outputs.\n\n"
+
+        "== NEARBY AIRPORTS ==\n"
+        "For flight searches, always consider nearby airports. DXB → also SHJ, AUH. "
+        "JFK → also EWR, LGA. LHR → also LGW, STN. London-area, NYC-area, Dubai-area "
+        "users should see prices from all local airports.\n\n"
+
+        "== GROUND TRANSPORT ==\n"
+        "For any trip, always call search_ground_transport for the origin→destination "
+        "leg. Buses and trains are often cheaper and more convenient than flights for "
+        "distances under 500km. Present bus/train links alongside flight options.\n\n"
+
+        "== CONFIDENCE LABELS ==\n"
+        "Every data point has a data_confidence field. Surface these to the user:\n"
+        "- scraped_live: real-time Google Flights scrape\n"
+        "- live_rss: live government feed\n"
+        "- live_forecast: Open-Meteo live weather\n"
+        "- curated_snapshot: our dataset (verify with official_link before booking)\n"
+        "- estimated: calculated estimate\n"
+        "- deeplink: link to live prices on the service's own site\n"
+        "- wikidata_fallback: Wikidata attractions (no OpenTripMap key configured)\n\n"
+
+        "== RESPONSE FORMAT ==\n"
+        "Structure every travel answer as:\n"
+        "1. ✈️ Flights — cheapest option with price, airline, duration, booking link\n"
+        "2. 🏨 Hotels — cheapest option per night + Booking.com / Airbnb / Google Hotels links\n"
+        "3. 🚌 Ground transport — bus/train options with booking links\n"
+        "4. 📋 Visa — category (visa-free / e-visa / on-arrival) + apply link\n"
+        "5. 🌤️ Weather — avg temp and rainy days for travel dates\n"
+        "6. ⚠️ Safety — advisory level and any warnings\n"
+        "7. 🏛️ Top attractions — 4-6 real verified places\n"
+        "8. 💰 Total cost estimate — flight + hotel + food breakdown\n"
+        "9. ✅ Booking checklist — ordered steps to actually book this trip\n\n"
+
+        "== BOOKING LINKS ==\n"
+        "Always surface direct booking URLs. Use the booking_links fields in tool "
+        "outputs. Present them as clickable: '[Book on Skyscanner](url)'. "
+        "For visas, always include the official apply_link. "
+        "Never just say 'search Booking.com' — give the filled-in URL.\n\n"
+
+        "== WHEN TO USE WEB SEARCH ==\n"
+        "- Current mistake fares / flash deals\n"
+        "- Recent destination news (strikes, closures, protests)\n"
+        "- Restaurant reviews and specific recommendations\n"
+        "- Local festivals not in Ticketmaster\n"
+        "- Visa policy changes after May 2026\n"
+        "Always run the suggest_web_search queries from tool outputs."
     ),
     lifespan=app_lifespan,
 )
@@ -139,20 +203,24 @@ async def tool_cheap_anywhere_from(
     max_price: float | None = None,
     max_results: int = 20,
     currency: str = "USD",
+    regions: str | None = None,
+    round_trip_days: int | None = None,
 ) -> dict:
     """INSPIRATION: Find cheapest destinations from origin airport.
 
     "Show me cheap flights from NYC anywhere in March" - returns ranked
-    destinations by price.
+    destinations by price. Set round_trip_days for realistic round-trip budgeting.
 
     Args:
         origin: IATA airport code (e.g., "JFK")
         month: YYYY-MM constraint (optional)
-        max_price: Filter out above this price
+        max_price: Filter out above this price (per-person)
         max_results: Max destinations
         currency: USD, EUR, etc.
+        regions: Comma-separated (europe, asia, americas, oceania, africa, middle_east)
+        round_trip_days: Days at destination for round-trip price (omit for one-way)
     """
-    return await cheap_anywhere_from(origin, month, max_price, max_results, currency)
+    return await cheap_anywhere_from(origin, month, max_price, max_results, currency, regions, round_trip_days)
 
 
 @mcp.tool()
@@ -652,6 +720,188 @@ async def tool_visa_free_destinations(
         include_categories: Comma-separated category filter
     """
     return await visa_free_destinations(passport_country, include_categories)
+
+
+# ============================================================
+# TRAVELER PROFILE (persistent memory — real travel agent UX)
+# ============================================================
+
+@mcp.tool()
+async def tool_get_traveler_profile() -> dict:
+    """Load the stored traveler profile (home airports, passports, history).
+
+    ALWAYS call this at the start of a session. If onboarded=False,
+    walk the user through onboard_traveler before doing anything else.
+    """
+    return await get_traveler_profile()
+
+
+@mcp.tool()
+async def tool_onboard_traveler(
+    name: str | None = None,
+    home_airports: str | None = None,
+    passports: str | None = None,
+    home_currency: str = "USD",
+    travel_style: str | None = None,
+    interests: str | None = None,
+    dietary: str | None = None,
+    preferred_cabin: str = "economy",
+    visas_held: str | None = None,
+    eta_held: str | None = None,
+) -> dict:
+    """First-time setup. Saves profile so the agent remembers you forever.
+
+    Run this once when the user is new. After this, get_traveler_profile
+    returns their stored preferences on every future session.
+
+    Args:
+        name: First name
+        home_airports: Comma-separated IATA (e.g., "JFK,EWR")
+        passports: Comma-separated ISO-2 (e.g., "US" or "US,IN")
+        home_currency: USD, EUR, GBP, INR, etc.
+        travel_style: budget, moderate, luxury
+        interests: Comma-separated (e.g., "food,history,beach")
+        dietary: Comma-separated restrictions
+        preferred_cabin: economy, premium_economy, business, first
+        visas_held: ISO-2 dest codes with active visas (e.g., "IN,CN")
+        eta_held: Active ETAs (e.g., "ESTA (US),UK ETA")
+    """
+    return await onboard_traveler(
+        name, home_airports, passports, home_currency,
+        travel_style, interests, dietary, preferred_cabin,
+        visas_held, eta_held,
+    )
+
+
+@mcp.tool()
+async def tool_update_traveler_profile(
+    name: str | None = None,
+    home_airports: str | None = None,
+    passports: str | None = None,
+    home_currency: str | None = None,
+    travel_style: str | None = None,
+    interests: str | None = None,
+    dietary: str | None = None,
+    preferred_cabin: str | None = None,
+    visas_held: str | None = None,
+    eta_held: str | None = None,
+    add_visa: str | None = None,
+    add_trip_destination: str | None = None,
+    add_trip_from: str | None = None,
+    add_trip_to: str | None = None,
+    add_trip_purpose: str = "tourism",
+) -> dict:
+    """Update profile fields or log a completed trip. Pass only what changed.
+
+    Args:
+        name: Update name
+        home_airports: Replace home airports (comma-separated IATA)
+        passports: Replace passports (comma-separated ISO-2)
+        home_currency: Update home currency
+        travel_style: budget, moderate, luxury
+        interests: Replace interests (comma-separated)
+        dietary: Replace dietary restrictions
+        preferred_cabin: economy, premium_economy, business, first
+        visas_held: Replace full visa list (comma-separated ISO-2 dest codes)
+        eta_held: Replace ETA list
+        add_visa: Append one ISO-2 dest code to visas_held
+        add_trip_destination: Log a trip — destination name
+        add_trip_from: Trip start YYYY-MM-DD
+        add_trip_to: Trip end YYYY-MM-DD
+        add_trip_purpose: tourism, business, family, other
+    """
+    return await update_traveler_profile(
+        name, home_airports, passports, home_currency, travel_style,
+        interests, dietary, preferred_cabin, visas_held, eta_held,
+        add_visa, add_trip_destination, add_trip_from, add_trip_to, add_trip_purpose,
+    )
+
+
+@mcp.tool()
+async def tool_get_trip_history(limit: int = 20) -> dict:
+    """View logged trip history for this traveler.
+
+    Args:
+        limit: Max trips to return (most recent first)
+    """
+    return await get_trip_history(limit)
+
+
+# ============================================================
+# GROUND TRANSPORT (bus, train, ferry)
+# ============================================================
+
+@mcp.tool()
+async def tool_search_ground_transport(
+    origin_city: str,
+    destination_city: str,
+    date: str,
+    travelers: int = 1,
+    region: str | None = None,
+) -> dict:
+    """Search bus, train, and ferry options between two cities.
+
+    Returns multi-modal route overview + direct booking links for
+    Amtrak, FlixBus, Greyhound, Megabus, OurBus, BlaBlaCar,
+    Busbud, Trainline, IRCTC, 12Go, and Rome2Rio.
+    No API key required.
+
+    Args:
+        origin_city: Departure city (e.g., "State College", "Paris", "Mumbai")
+        destination_city: Destination city (e.g., "New York", "London", "Delhi")
+        date: Departure date YYYY-MM-DD
+        travelers: Number of travelers
+        region: us, europe, india, sea — auto-detected if omitted
+    """
+    return await search_ground_transport(origin_city, destination_city, date, travelers, region)
+
+
+# ============================================================
+# BOOKABLE TRIP PACKAGE (orchestrates everything in one call)
+# ============================================================
+
+@mcp.tool()
+async def tool_plan_trip_package(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    return_date: str | None = None,
+    trip_length_days: int = 7,
+    travelers: int = 1,
+    passport_country: str | None = None,
+    currency: str = "USD",
+    budget_level: str = "moderate",
+    interests: str | None = None,
+    include_ground_transport: bool = True,
+) -> dict:
+    """THE KILLER TOOL: Complete bookable trip package in one call.
+
+    Simultaneously fetches and composes: flights (multi-airport),
+    hotels, visa requirements, weather, safety advisory, attractions,
+    ground transport, and a cost estimate — with direct booking URLs
+    for every section and a step-by-step booking checklist.
+
+    Use this when the user has a specific trip in mind.
+    Use score_destinations first if they're still deciding where to go.
+
+    Args:
+        origin: Departure airport IATA or city (e.g., "DXB", "JFK", "New York")
+        destination: Destination city (e.g., "Bali", "Tokyo", "Paris")
+        departure_date: YYYY-MM-DD
+        return_date: YYYY-MM-DD (auto-calculated from trip_length_days if omitted)
+        trip_length_days: Nights (used when return_date omitted)
+        travelers: Number of travelers
+        passport_country: ISO-2 for visa check (e.g., "US", "IN", "GB")
+        currency: Home currency for all prices
+        budget_level: budget, moderate, luxury
+        interests: Comma-separated (e.g., "beach,food,history")
+        include_ground_transport: Also search buses/trains
+    """
+    return await plan_trip_package(
+        origin, destination, departure_date, return_date,
+        trip_length_days, travelers, passport_country, currency,
+        budget_level, interests, include_ground_transport,
+    )
 
 
 def main():

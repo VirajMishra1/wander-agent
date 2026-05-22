@@ -200,8 +200,13 @@ async def search_flights(
             "passengers": adults,
             "results_count": len(gf["flights"]),
             "flights": gf["flights"],
+            # cheapest_price is ALWAYS per-person regardless of adults count.
+            # Use cheapest_price_total for the full group cost.
             "cheapest_price": cheapest,
+            "cheapest_price_total": round(cheapest * adults, 2),
+            "price_is_per_person": True,
             "currency": currency.upper(),
+            "data_confidence": "scraped_live",
             "price_signal": gf.get("price_signal", "typical"),
             "data_source": gf["source"],
             "suggest_web_search": [
