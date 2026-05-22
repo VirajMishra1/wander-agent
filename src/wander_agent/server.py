@@ -197,7 +197,7 @@ async def tool_search_flights(
 ) -> dict:
     """PLANNING: Search flights between two airports.
 
-    Uses Travelpayouts (primary) -> Kiwi Tequila (fallback) chain.
+    Uses Google Flights data through fast_flights. No API key required.
 
     Args:
         origin: IATA airport code (e.g., "JFK", "LAX", "LHR")
@@ -227,7 +227,8 @@ async def tool_search_hotels(
 ) -> dict:
     """PLANNING: Search hotels in a city.
 
-    Uses Hotellook (primary) -> Xotelo (fallback) chain.
+    Uses Google Hotels names through fast_hotels plus booking deeplinks.
+    Optional Hotellook prices are returned when TRAVELPAYOUTS_TOKEN is set.
 
     Args:
         city: City name (e.g., "Paris", "Tokyo") - NOT IATA code

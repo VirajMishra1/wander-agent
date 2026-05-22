@@ -99,7 +99,7 @@ Try these inside Claude Desktop or Claude Code after install. Screenshot-ready.
 ```bash
 git clone https://github.com/VirajMishra1/wander-agent.git
 cd wander-agent
-uv sync
+uv sync --no-editable
 ```
 
 Add to Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
@@ -108,7 +108,7 @@ Add to Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_conf
   "mcpServers": {
     "wander-agent": {
       "command": "uv",
-      "args": ["run", "--directory", "/absolute/path/to/wander-agent", "wander-agent"]
+      "args": ["run", "--no-editable", "--directory", "/absolute/path/to/wander-agent", "wander-agent"]
     }
   }
 }
@@ -116,7 +116,7 @@ Add to Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_conf
 
 Restart Claude. The 27 tools appear.
 
-For Claude Code: `uv run mcp install src/wander_agent/server.py`.
+For Claude Code: `uv run --no-editable mcp install src/wander_agent/server.py`.
 
 **No `.env` required for the minimum-functional agent.** Optional keys upgrade specific features:
 
