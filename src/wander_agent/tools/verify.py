@@ -32,7 +32,6 @@ async def verify_place(
         city: City context (e.g., "Paris")
         expected_type: restaurant, attraction, hotel, museum, park
     """
-    from ..utils.config import FOURSQUARE_KEY, OPENTRIPMAP_KEY
     from ..utils.http import get_client
 
     results: dict = {"place_name": place_name, "city": city, "verified": False, "sources": []}
@@ -145,69 +144,6 @@ async def verify_place(
                     break
     except Exception:
         pass
-
-    # Source 3: Foursquare (if key)
-    if FOURSQUARE_KEY:
-        try:
-            fsq_resp = await client.get(
-                "https://api.foursquare.com/v3/places/search",
-                params={"query": place_name, "near": city, "limit": 3},
-                headers={"Authorization": FOURSQUARE_KEY, "Accept": "application/json"},
-                timeout=10.0,
-            )
-            if fsq_resp.status_code == 200:
-                places = fsq_resp.json().get("results", [])
-                if places:
-                    p = places[0]
-                    results["sources"].append({
-                        "source": "Foursquare",
-                        "found": True,
-                        "name": p.get("name", ""),
-                        "address": p.get("location", {}).get("formatted_address", ""),
-                        "categories": [c.get("name", "") for c in p.get("categories", [])],
-                    })
-                    results["verified"] = True
-        except Exception:
-            pass
-
-    # Source 4: OpenTripMap (if key + coords)
-    if OPENTRIPMAP_KEY and results.get("latitude"):
-        try:
-            otm_resp = await client.get(
-                "https://api.opentripmap.com/0.1/en/places/radius",
-                params={
-                    "lat": results["latitude"],
-                    "lon": results["longitude"],
-                    "radius": 500,
-                    "limit": 5,
-                    "apikey": OPENTRIPMAP_KEY,
-                    "format": "json",
-                },
-                timeout=10.0,
-            )
-            if otm_resp.status_code == 200:
-                otm_data = otm_resp.json()
-                matching = [p for p in otm_data if _name_match(p.get("name", ""), place_name)]
-                if matching:
-                    results["sources"].append({
-                        "source": "OpenTripMap",
-                        "found": True,
-                        "name": matching[0].get("name", ""),
-                        "kinds": matching[0].get("kinds", ""),
-                    })
-        except Exception:
-            pass
-
-    confidence_count = len([s for s in results["sources"] if s.get("found", False)])
-    if confidence_count >= 2:
-        results["confidence"] = "high"
-        results["recommendation"] = "Place verified across multiple sources. Safe to recommend."
-    elif confidence_count == 1:
-        results["confidence"] = "medium"
-        results["recommendation"] = "Place found in one source. Verify details before recommending."
-    else:
-        results["confidence"] = "not_found"
-        results["recommendation"] = "Place NOT found in any source. Likely hallucinated. Do not recommend."
 
     return results
 

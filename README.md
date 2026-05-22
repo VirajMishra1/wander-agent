@@ -11,6 +11,8 @@ No single API key is required. All tools degrade gracefully — live data when k
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
+No API keys required.
+
 ---
 
 ## Install
@@ -27,21 +29,6 @@ Verify:
 ```bash
 python -c "import wander_agent; print('ok')"
 ```
-
----
-
-## Environment Variables
-
-All optional. Copy `.env.example` to `.env` and fill in what you have.
-
-| Variable | Used by | Without it |
-|---|---|---|
-| `OPENTRIPMAP_API_KEY` | `search_activities` | Falls back to Wikidata SPARQL |
-| `AMADEUS_CLIENT_ID` | `search_flights` | Falls back to Google Flights scraper |
-| `AMADEUS_CLIENT_SECRET` | `search_flights` | Falls back to Google Flights scraper |
-| `SERPAPI_KEY` | `search_hotels`, `get_local_events` | Falls back to static scraping |
-| `EXCHANGERATE_API_KEY` | `convert_currency`, `get_exchange_rates` | Falls back to open.er-api.com (rate-limited) |
-| `ROME2RIO_KEY` | `search_ground_transport` | Falls back to public demo key |
 
 ---
 
@@ -86,7 +73,7 @@ claude mcp add wander-agent wander-agent
 Or with env vars:
 
 ```bash
-claude mcp add wander-agent -e OPENTRIPMAP_API_KEY=your_key wander-agent
+claude mcp add wander-agent wander-agent
 ```
 
 ### Cursor
@@ -97,10 +84,7 @@ Add to `.cursor/mcp.json` in your project root, or `~/.cursor/mcp.json` globally
 {
   "mcpServers": {
     "wander-agent": {
-      "command": "wander-agent",
-      "env": {
-        "OPENTRIPMAP_API_KEY": "your_key_here"
-      }
+      "command": "wander-agent"
     }
   }
 }
@@ -269,12 +253,10 @@ OpenAI's Agents API does not natively support MCP as of mid-2025. To use wander-
 | fast-flights (PyPI) | Flight price parsing | None | — |
 | Open-Meteo | Weather forecasts + historical | None (free) | — |
 | Wikidata SPARQL | Attractions near coordinates | None (free) | — |
-| OpenTripMap | Rated attractions database | `OPENTRIPMAP_API_KEY` | Wikidata |
 | US State Dept RSS | Travel advisories | None (public RSS) | — |
 | Nominatim / OSM | Geocoding | None (free) | — |
-| Rome2Rio API | Multi-modal ground transport | `ROME2RIO_KEY` | Public demo key |
+| Rome2Rio | Ground transport deeplinks | None | — |
 | open.er-api.com | Exchange rates | None (rate-limited) | — |
-| ExchangeRate-API | Exchange rates (higher limits) | `EXCHANGERATE_API_KEY` | open.er-api |
 | Teleport / Numbeo (static) | Cost-of-living estimates | None | Static data |
 | Curated static data | Visa requirements, nearby airports | None | — |
 
@@ -293,11 +275,11 @@ OpenAI's Agents API does not natively support MCP as of mid-2025. To use wander-
 **Nearby airports:** Static dict in `utils/airport_data.py` — 40+ airport pairs (JFK↔EWR↔LGA, LHR↔LGW↔STN, DXB↔SHJ↔AUH, etc.). Used by `plan_trip_package` and `cheap_anywhere_from` to automatically check alternate origin airports.
 
 **Fallback chain per tool:**
-- Flights: Amadeus API → Google Flights scraper
-- Hotels: Serpapi → fast-hotels scraper → booking.com deep-links
-- Activities: OpenTripMap → Wikidata SPARQL
+- Flights: Google Flights scraper (fast-flights)
+- Hotels: fast-hotels scraper (Google Hotels) → booking.com deep-links
+- Activities: Wikidata SPARQL
 - Ground transport: Rome2Rio API → regional service deep-links (Amtrak, Greyhound, Megabus, FlixBus, BlaBlaBus, Trainline, IRCTC, 12Go, etc.)
-- Exchange rates: ExchangeRate-API → open.er-api.com
+- Exchange rates: open.er-api.com (free, no key)
 
 **Confidence labels:** Every tool response includes `data_confidence`:
 - `scraped_live` — scraped in real time, may be stale within minutes
@@ -316,7 +298,7 @@ OpenAI's Agents API does not natively support MCP as of mid-2025. To use wander-
 - **Hotel prices**: Estimated from available data, not live quotes. Use booking deep-links for actual availability and pricing.
 - **Visa data**: Curated static snapshot. Policies change — always verify with the official embassy link returned in the response before booking.
 - **Travel advisories**: From US State Dept RSS. Typically accurate but may lag 24–48h behind official updates.
-- **Activities**: Without `OPENTRIPMAP_API_KEY`, falls back to Wikidata SPARQL which has inconsistent coverage outside major cities.
+- **Activities**: Uses Wikidata SPARQL, which has inconsistent coverage outside major cities.
 - **Ground transport**: Deep-links to booking services. Route availability and pricing require clicking through to the provider.
 - **Score destinations**: Composite score is a heuristic — change `weights` to match your actual priorities.
 
