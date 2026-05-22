@@ -79,6 +79,100 @@ VISA_DATA: dict[str, dict[str, set[str]]] = {
 }
 
 
+# Official embassy / immigration links per destination country ISO-2
+_OFFICIAL_LINKS: dict[str, str] = {
+    "US": "https://travel.state.gov/content/travel/en/us-visas.html",
+    "GB": "https://www.gov.uk/check-uk-visa",
+    "EU": "https://home-affairs.ec.europa.eu/policies/schengen-borders-and-visa_en",
+    "DE": "https://www.auswaertiges-amt.de/en/visa-service",
+    "FR": "https://france-visas.gouv.fr/en_US/web/france-visas/",
+    "IT": "https://vistoperitalia.esteri.it/home/en",
+    "ES": "https://www.exteriores.gob.es/en/ServiciosAlCiudadano/Paginas/Visados.aspx",
+    "NL": "https://ind.nl/en/visa-stay-permit",
+    "BE": "https://diplomatie.belgium.be/en/services/travel_to_belgium/visa_for_belgium",
+    "AT": "https://www.mfa.gv.at/en/services/visa-for-austria.html",
+    "PT": "https://vistos.mne.gov.pt/en/national-visas",
+    "GR": "https://www.mfa.gr/en/visas/",
+    "CH": "https://www.eda.admin.ch/eda/en/fdfa/living-abroad/entering-switzerland.html",
+    "JP": "https://www.mofa.go.jp/j_info/visit/visa/index.html",
+    "KR": "https://www.visa.go.kr/openPage.do?MENU_ID=10101",
+    "CN": "https://www.visaforchina.cn/",
+    "IN": "https://indianvisaonline.gov.in/evisa/tvoa.html",
+    "TH": "https://www.thaievisa.go.th/",
+    "VN": "https://evisa.xuatnhapcanh.gov.vn/",
+    "ID": "https://molina.imigrasi.go.id/",
+    "SG": "https://www.ica.gov.sg/enter-transit-depart/entering-singapore",
+    "MY": "https://www.imi.gov.my/portal2017/index.php/ms/sumber-dan-arkib/visa.html",
+    "AU": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-finder/visit",
+    "NZ": "https://www.immigration.govt.nz/new-zealand-visas",
+    "AE": "https://u.ae/en/information-and-services/visa-and-emirates-id/do-you-need-an-entry-permit-or-a-visa-to-enter-the-uae",
+    "TR": "https://www.evisa.gov.tr/en/",
+    "EG": "https://visa2egypt.gov.eg/",
+    "KE": "https://evisa.go.ke/evisa.html",
+    "ZA": "https://www.dha.gov.za/index.php/immigration-services/types-of-visas",
+    "MA": "https://www.consulat.ma/en/visa-procedure",
+    "BR": "https://www.gov.br/mre/en/topics/consular-services/visas",
+    "MX": "https://consulmex.sre.gob.mx/reinounido/index.php/en/visa",
+    "AR": "https://cancilleria.gob.ar/en/services/visas",
+    "CA": "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada.html",
+    "SA": "https://visa.visitsaudi.com/",
+    "JO": "https://www.timatic.aero/",
+    "RU": "https://www.kdmid.ru/",
+    "LK": "https://www.srilankaevisa.lk/",
+    "NP": "https://nepaliport.immigration.gov.np/",
+    "MV": "https://www.immigration.gov.mv/",
+    "KH": "https://www.evisa.gov.kh/",
+    "LA": "https://laoevisa.gov.la/",
+    "MM": "https://evisa.moip.gov.mm/",
+}
+
+# ETA application links
+_ETA_LINKS: dict[str, str] = {
+    "US": "https://esta.cbp.dhs.gov/",           # ESTA
+    "CA": "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/eta/apply.html",
+    "AU": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-finder/visit/electronic-travel-authority",
+    "NZ": "https://www.immigration.govt.nz/new-zealand-visas/visas/visa/nzeta",
+    "GB": "https://www.gov.uk/guidance/apply-for-an-electronic-travel-authorisation-eta",
+    "IN": "https://indianvisaonline.gov.in/evisa/tvoa.html",
+}
+
+# e-visa application links
+_EVISA_LINKS: dict[str, str] = {
+    "IN": "https://indianvisaonline.gov.in/evisa/tvoa.html",
+    "VN": "https://evisa.xuatnhapcanh.gov.vn/",
+    "TR": "https://www.evisa.gov.tr/en/",
+    "EG": "https://visa2egypt.gov.eg/",
+    "KE": "https://evisa.go.ke/evisa.html",
+    "SA": "https://visa.visitsaudi.com/",
+    "KH": "https://www.evisa.gov.kh/",
+    "LK": "https://www.srilankaevisa.lk/",
+    "TZ": "https://eservices.immigration.go.tz/visa/",
+    "UG": "https://visas.immigration.go.ug/",
+    "RW": "https://irembo.gov.rw/rolportal/en/web/dgie/foreign-nationals",
+    "ZW": "https://www.evisa.gov.zw/",
+    "CN": "https://www.visaforchina.cn/",
+    "ID": "https://molina.imigrasi.go.id/",
+    "MY": "https://evisa.imi.gov.my/",
+    "MM": "https://evisa.moip.gov.mm/",
+    "TH": "https://www.thaievisa.go.th/",
+}
+
+
+def _official_link(dest_iso2: str) -> str:
+    """Return official immigration/visa link for a destination country."""
+    return _OFFICIAL_LINKS.get(dest_iso2.upper(), f"https://www.timatic.aero/")
+
+
+def _eta_apply_link(dest_iso2: str) -> str | None:
+    """Return ETA application link for destination (or None if not in map)."""
+    return _ETA_LINKS.get(dest_iso2.upper())
+
+
+def _evisa_apply_link(dest_iso2: str) -> str | None:
+    """Return e-visa application link for destination (or None if not in map)."""
+    return _EVISA_LINKS.get(dest_iso2.upper())
+
+
 def _classify(passport: str, dest_code: str) -> dict:
     p = passport.lower()
     d = dest_code.upper()
@@ -95,18 +189,32 @@ def _classify(passport: str, dest_code: str) -> dict:
 
     if d in data["visa_free"]:
         return {"passport": passport.upper(), "destination": d, "category": "visa_free",
-                 "guidance": "No visa required for tourism (typical 30-90 day stays)."}
+                 "guidance": "No visa required for tourism (typical 30-90 day stays).",
+                 "official_link": _official_link(d),
+                 "data_confidence": "curated_snapshot"}
     if d in data.get("eta_required", set()):
+        apply = _eta_apply_link(d)
         return {"passport": passport.upper(), "destination": d, "category": "eta_required",
-                 "guidance": f"Electronic travel authorization REQUIRED. Apply online before departure (e.g., ESTA for US, ETA for Australia/Canada/UK)."}
+                 "guidance": "Electronic travel authorization REQUIRED. Apply online before departure.",
+                 "apply_link": apply,
+                 "official_link": _official_link(d),
+                 "data_confidence": "curated_snapshot"}
     if d in data.get("visa_on_arrival", set()):
         return {"passport": passport.upper(), "destination": d, "category": "visa_on_arrival",
-                 "guidance": "Visa issued on arrival at airport. Bring USD cash + passport photo typically."}
+                 "guidance": "Visa issued on arrival at airport. Bring USD cash + passport photo typically.",
+                 "official_link": _official_link(d),
+                 "data_confidence": "curated_snapshot"}
     if d in data.get("evisa", set()):
+        apply = _evisa_apply_link(d)
         return {"passport": passport.upper(), "destination": d, "category": "evisa",
-                 "guidance": "Electronic visa REQUIRED. Apply online before travel."}
+                 "guidance": "Electronic visa REQUIRED. Apply online before travel.",
+                 "apply_link": apply,
+                 "official_link": _official_link(d),
+                 "data_confidence": "curated_snapshot"}
     return {"passport": passport.upper(), "destination": d, "category": "visa_required",
-             "guidance": "Visa REQUIRED. Apply at consulate before travel. Allow 1-8 weeks."}
+             "guidance": "Visa REQUIRED. Apply at consulate before travel. Allow 1-8 weeks.",
+             "official_link": _official_link(d),
+             "data_confidence": "curated_snapshot"}
 
 
 async def check_visa_requirement(

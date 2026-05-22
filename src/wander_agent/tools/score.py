@@ -60,8 +60,21 @@ async def score_destinations(
         events_task = get_local_events(city=dest, start_date=travel_start, end_date=travel_end, max_results=10)
         col_task = get_cost_of_living(city=dest)
 
-        weather, hotels, advisory, events, col = await asyncio.gather(
-            weather_task, hotels_task, advisory_task, events_task, col_task,
+        # When origin is provided, fetch real flight cost so ranking reflects actual trip expense.
+        if origin:
+            from .flights import search_flights
+            from ..utils.airport_data import city_to_iata
+            dest_iata = city_to_iata(dest) or dest.upper()[:3]
+            flight_task: object = search_flights(
+                origin=origin.upper(), destination=dest_iata,
+                departure_date=travel_start, return_date=travel_end,
+                max_results=1,
+            )
+        else:
+            flight_task = asyncio.sleep(0, result={})
+
+        weather, hotels, advisory, events, col, flight_result = await asyncio.gather(
+            weather_task, hotels_task, advisory_task, events_task, col_task, flight_task,
             return_exceptions=True,
         )
         weather = weather if not isinstance(weather, Exception) else {}
@@ -69,20 +82,34 @@ async def score_destinations(
         advisory = advisory if not isinstance(advisory, Exception) else {}
         events = events if not isinstance(events, Exception) else {}
         col = col if not isinstance(col, Exception) else {}
+        flight_result = flight_result if not isinstance(flight_result, Exception) else {}
 
         # Raw metrics
         avg_temp = (weather.get("summary") or {}).get("avg_high_c", 20)
         rainy = (weather.get("summary") or {}).get("rainy_days", 0)
-        total_days = (weather.get("summary") or {}).get("total_days", 1)
-        rainy_pct = rainy / max(total_days, 1)
+        total_days_weather = (weather.get("summary") or {}).get("total_days", 1)
+        rainy_pct = rainy / max(total_days_weather, 1)
 
-        # Cost: use curated cost-of-living mid-tier (real data), not just hotels
+        from datetime import datetime as _dt
+        trip_days = max(
+            (_dt.strptime(travel_end, "%Y-%m-%d") - _dt.strptime(travel_start, "%Y-%m-%d")).days, 1
+        )
+        hotel_per_night = hotels.get("cheapest_price_per_night") or 80
         col_budget = (col.get("daily_budget_per_person") or {})
         col_mid = col_budget.get("mid_tier_usd")
-        if col_mid:
+
+        # flight_price_pp: per-person round-trip (search_flights contract: always per-person)
+        flight_price_pp: float | None = None
+        if isinstance(flight_result, dict) and flight_result.get("cheapest_price"):
+            flight_price_pp = float(flight_result["cheapest_price"])
+
+        # Cost = (flight round-trip + hotel total) / trip days — real total trip cost daily equivalent
+        if flight_price_pp is not None:
+            daily_cost = (flight_price_pp + hotel_per_night * trip_days) / trip_days
+        elif col_mid:
             daily_cost = float(col_mid)
         else:
-            daily_cost = (hotels.get("cheapest_price_per_night") or 100) + 80
+            daily_cost = hotel_per_night + 80
 
         # Safety: use advisory_level (1-4) directly, default 1 (safest) if no advisory
         advisory_level = advisory.get("advisory_level") or 1
@@ -113,10 +140,13 @@ async def score_destinations(
             "metrics": {
                 "avg_temp_c": avg_temp,
                 "rainy_days_pct": round(rainy_pct * 100, 1),
-                "daily_cost_usd_mid_tier": daily_cost,
+                "daily_cost_usd_equiv": round(daily_cost, 2),
+                "flight_price_per_person": flight_price_pp,
+                "hotel_per_night": hotel_per_night,
                 "advisory_level": advisory_level,
                 "event_count": event_count,
                 "value_score": round(qol_proxy, 2),
+                "cost_includes_flights": flight_price_pp is not None,
             },
             "raw_scores": {
                 "weather": round(w_score, 2),

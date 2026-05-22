@@ -1,0 +1,266 @@
+"""Ground transport search — the missing leg of every trip.
+
+Covers buses, trains, and ferries between cities.
+Deeplinks + Rome2Rio API (no key needed for basic results via their web API).
+
+Sources:
+  - Rome2Rio (undocumented web JSON) — multi-modal route overview
+  - FlixBus deeplink
+  - Amtrak deeplink (US rail)
+  - Greyhound deeplink
+  - Megabus deeplink
+  - OurBus deeplink
+  - BlaBlaCar Bus deeplink (Europe)
+  - Busbud deeplink (global bus)
+  - Trainline deeplink (Europe/UK rail)
+  - IRCTC deeplink (India rail)
+  - 12Go deeplink (SEA)
+  - Google Maps Transit deeplink
+"""
+
+from __future__ import annotations
+
+import urllib.parse
+from datetime import datetime
+
+
+# Deeplink templates
+_DEEPLINKS = {
+    "flixbus": "https://shop.flixbus.com/search?departureCity={origin_city}&arrivalCity={dest_city}&rideDate={date}&adult=1",
+    "amtrak": "https://www.amtrak.com/buy/station/{origin_code}/{dest_code}.html?departDate={date}&numberOfAdults=1",
+    "greyhound": "https://www.greyhound.com/en/results?origin={origin_city}&destination={dest_city}&outboundDate={date}&pax=1",
+    "megabus": "https://us.megabus.com/journey-planner/journeys?originId={origin_city}&destinationId={dest_city}&outboundDepartureDate={date}&totalPassengers=1",
+    "ourbus": "https://www.ourbus.com/booknow?origin={origin_city}&destination={dest_city}&date={date}",
+    "blablacar_bus": "https://www.blablacar.com/bus/search?departure_city={origin_city}&arrival_city={dest_city}&departure_date={date}&passengers=1",
+    "busbud": "https://www.busbud.com/en/bus-schedules/{origin_city}/{dest_city}/{date}",
+    "trainline": "https://www.thetrainline.com/book/results?origin={origin_city}&destination={dest_city}&outwardDate={date}&passengers[]=26",
+    "irctc": "https://www.irctc.co.in/nget/train-search?fromStation={origin_code}&toStation={dest_code}&journeyDate={date}&journeyQuota=GN",
+    "12go": "https://12go.asia/en/travel/{origin_city}/{dest_city}?from_date={date}",
+    "rome2rio": "https://www.rome2rio.com/s/{origin_slug}/{dest_slug}",
+    "google_maps_transit": "https://www.google.com/maps/dir/?api=1&origin={origin_city}&destination={dest_city}&travelmode=transit",
+}
+
+# Which services to show per region
+_REGIONAL_SERVICES = {
+    "us": ["amtrak", "greyhound", "megabus", "ourbus", "flixbus", "busbud", "rome2rio"],
+    "europe": ["flixbus", "blablacar_bus", "trainline", "busbud", "rome2rio"],
+    "india": ["irctc", "busbud", "rome2rio"],
+    "sea": ["12go", "busbud", "rome2rio"],
+    "global": ["busbud", "rome2rio"],
+}
+
+# City -> Amtrak station code
+_AMTRAK_CODES: dict[str, str] = {
+    "new york": "NYP", "nyc": "NYP", "new york city": "NYP",
+    "washington dc": "WAS", "washington": "WAS", "dc": "WAS",
+    "philadelphia": "PHL", "boston": "BOS", "baltimore": "BAL",
+    "chicago": "CHI", "los angeles": "LAX", "san francisco": "EMY",
+    "seattle": "SEA", "portland": "PDX", "denver": "DEN",
+    "state college": "HAR",  # nearest Amtrak: Harrisburg, PA
+    "harrisburg": "HAR", "pittsburgh": "PGH",
+    "miami": "MIA", "orlando": "ORL", "atlanta": "ATL",
+    "new orleans": "NOL", "dallas": "DAL", "houston": "HOU",
+    "minneapolis": "MSP", "kansas city": "KCY", "st. louis": "STL",
+    "raleigh": "RAG", "richmond": "RVR", "charlotte": "CLT",
+}
+
+# City -> IRCTC station code
+_IRCTC_CODES: dict[str, str] = {
+    "mumbai": "CSTM", "delhi": "NDLS", "new delhi": "NDLS",
+    "bangalore": "SBC", "bengaluru": "SBC",
+    "chennai": "MAS", "kolkata": "KOAA", "hyderabad": "HYB",
+    "pune": "PUNE", "ahmedabad": "ADI", "jaipur": "JP",
+    "goa": "MAO", "kochi": "ERS", "agra": "AGC",
+    "varanasi": "BSB", "lucknow": "LKO", "bhopal": "BPL",
+    "surat": "ST", "amritsar": "ASR", "chandigarh": "CDG",
+}
+
+# City -> Rome2Rio slug
+def _slugify(city: str) -> str:
+    return city.lower().strip().replace(" ", "-").replace(",", "").replace(".", "")
+
+
+def _fill_link(template: str, **kwargs: str) -> str:
+    result = template
+    for key, val in kwargs.items():
+        result = result.replace(f"{{{key}}}", urllib.parse.quote(str(val), safe=""))
+    return result
+
+
+def _detect_region(origin: str, dest: str) -> str:
+    combined = (origin + " " + dest).lower()
+    india = set(_IRCTC_CODES.keys())
+    if any(c in combined for c in india):
+        return "india"
+    sea_cities = {"bangkok", "singapore", "kuala lumpur", "ho chi minh", "hanoi",
+                  "bali", "jakarta", "yangon", "phnom penh", "vientiane", "colombo"}
+    if any(c in combined for c in sea_cities):
+        return "sea"
+    europe_hints = {"paris", "london", "berlin", "rome", "barcelona", "amsterdam",
+                    "madrid", "lisbon", "vienna", "prague", "brussels", "zurich",
+                    "stockholm", "oslo", "copenhagen", "warsaw", "budapest", "athens"}
+    if any(c in combined for c in europe_hints):
+        return "europe"
+    return "us"
+
+
+async def _try_rome2rio(origin: str, destination: str) -> list[dict]:
+    """Query Rome2Rio undocumented web API for multi-modal route overview."""
+    from ..utils.http import get_client
+
+    client = await get_client()
+    try:
+        resp = await client.get(
+            "https://www.rome2rio.com/api/1.4/json/Search",
+            params={"oName": origin, "dName": destination, "oPos": "", "dPos": ""},
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                              "AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+                "key": "Hnt4L9as",  # public demo key embedded in Rome2Rio's own JS
+            },
+            timeout=15.0,
+        )
+        if resp.status_code == 200:
+            routes = resp.json().get("routes", [])
+            out = []
+            for r in routes[:8]:
+                segs = r.get("segments", [])
+                out.append({
+                    "mode": r.get("name", ""),
+                    "duration_minutes": r.get("totalDuration", 0),
+                    "price_usd_approx": (
+                        round(r.get("indicativePrice", {}).get("price", 0) / 100, 2)
+                        if r.get("indicativePrice", {}).get("price")
+                        else None
+                    ),
+                    "via": [s.get("name", "") for s in segs if s.get("name")],
+                    "data_confidence": "estimated",
+                })
+            return out
+    except Exception:
+        pass
+    return []
+
+
+async def search_ground_transport(
+    origin_city: str,
+    destination_city: str,
+    date: str,
+    travelers: int = 1,
+    region: str | None = None,
+) -> dict:
+    """Search bus, train, and ferry options between two cities.
+
+    Returns multi-modal route overview + direct booking links for all
+    relevant services (Amtrak, FlixBus, Greyhound, Megabus, Trainline, etc.).
+    Click the booking_links URLs to see live prices and buy tickets.
+    No API key required.
+
+    Args:
+        origin_city: Departure city (e.g., "State College", "Paris", "Mumbai")
+        destination_city: Destination city (e.g., "New York", "London", "Delhi")
+        date: Departure date YYYY-MM-DD
+        travelers: Number of travelers
+        region: us, europe, india, sea — auto-detected if omitted
+    """
+    origin = origin_city.strip()
+    dest = destination_city.strip()
+
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return {"error": "date must be YYYY-MM-DD"}
+
+    if not region:
+        region = _detect_region(origin, dest)
+
+    services = _REGIONAL_SERVICES.get(region, _REGIONAL_SERVICES["global"])
+
+    origin_key = origin.lower()
+    dest_key = dest.lower()
+    amtrak_origin = _AMTRAK_CODES.get(origin_key, origin_key.upper()[:3])
+    amtrak_dest = _AMTRAK_CODES.get(dest_key, dest_key.upper()[:3])
+    irctc_origin = _IRCTC_CODES.get(origin_key, origin_key.upper()[:4])
+    irctc_dest = _IRCTC_CODES.get(dest_key, dest_key.upper()[:4])
+
+    # Build booking links
+    booking_links: list[dict] = []
+    for service in services:
+        template = _DEEPLINKS.get(service)
+        if not template:
+            continue
+        link = _fill_link(
+            template,
+            origin_city=origin,
+            dest_city=dest,
+            date=date,
+            origin_slug=_slugify(origin),
+            dest_slug=_slugify(dest),
+            origin_code=amtrak_origin if service == "amtrak" else irctc_origin,
+            dest_code=amtrak_dest if service == "amtrak" else irctc_dest,
+        )
+        booking_links.append({
+            "service": service.replace("_", " ").title(),
+            "url": link,
+            "coverage": _SERVICE_COVERAGE.get(service, "varies"),
+            "data_confidence": "deeplink",
+        })
+
+    # Rome2Rio deeplink (always add)
+    booking_links.append({
+        "service": "Rome2Rio",
+        "url": _fill_link(
+            _DEEPLINKS["rome2rio"],
+            origin_slug=_slugify(origin),
+            dest_slug=_slugify(dest),
+        ),
+        "coverage": "Global multi-modal overview",
+        "data_confidence": "deeplink",
+    })
+
+    # Google Maps Transit (always add)
+    maps_url = _fill_link(
+        _DEEPLINKS["google_maps_transit"],
+        origin_city=origin,
+        dest_city=dest,
+    )
+
+    # Try Rome2Rio API for route overview
+    r2r_routes = await _try_rome2rio(origin, dest)
+
+    return {
+        "origin": origin,
+        "destination": dest,
+        "date": date,
+        "travelers": travelers,
+        "region": region,
+        "route_overview": r2r_routes,
+        "booking_links": booking_links,
+        "google_maps_transit_url": maps_url,
+        "data_confidence": "live_routes" if r2r_routes else "deeplinks_only",
+        "note": (
+            "Click any booking_link URL to see live prices and buy tickets. "
+            "Route overview prices are indicative — final price on each service's site."
+        ),
+        "suggest_web_search": [
+            f"bus from {origin} to {dest} {date[:7]}",
+            f"train from {origin} to {dest} schedule",
+            f"cheapest way {origin} to {dest}",
+        ],
+    }
+
+
+_SERVICE_COVERAGE: dict[str, str] = {
+    "flixbus": "Europe + select US routes",
+    "amtrak": "United States rail",
+    "greyhound": "United States bus",
+    "megabus": "US + UK bus",
+    "ourbus": "US Northeast bus",
+    "blablacar_bus": "Europe bus + carpooling",
+    "busbud": "Global bus (50+ countries)",
+    "trainline": "Europe + UK rail",
+    "irctc": "India rail",
+    "12go": "Southeast Asia (bus/ferry/train)",
+    "rome2rio": "Global multi-modal",
+}

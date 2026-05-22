@@ -32,6 +32,7 @@ async def cheap_anywhere_from(
     max_results: int = 20,
     currency: str = "USD",
     regions: str | None = None,
+    round_trip_days: int | None = None,
 ) -> dict:
     """Find cheapest destinations from origin.
 
@@ -41,11 +42,13 @@ async def cheap_anywhere_from(
     Args:
         origin: IATA airport code (e.g., "JFK")
         month: YYYY-MM constraint (uses 15th of month). Omit for ~30 days out.
-        max_price: Filter destinations above this price
+        max_price: Filter destinations above this price (per-person)
         max_results: Max destinations to return
         currency: USD, EUR, etc.
         regions: Comma-separated regions to limit search (europe, asia, americas,
                  oceania, africa, middle_east). Omit for global.
+        round_trip_days: Number of days at destination for round-trip search.
+                         When set, prices are round-trip per person. Default: one-way.
     """
     from .flights import search_flights
     from ..utils.airport_data import filter_destinations
@@ -63,17 +66,21 @@ async def cheap_anywhere_from(
         search_date = datetime.now() + timedelta(days=14)
 
     departure_date = search_date.strftime("%Y-%m-%d")
+    return_date: str | None = None
+    if round_trip_days:
+        return_date = (search_date + timedelta(days=round_trip_days)).strftime("%Y-%m-%d")
+
     destinations = filter_destinations(regions=regions, exclude_origin=origin)
 
     async def _price_one(iata: str, city: str, country: str, region: str) -> dict | None:
         result = await search_flights(
             origin=origin, destination=iata, departure_date=departure_date,
-            max_results=1, currency=currency,
+            return_date=return_date, max_results=1, currency=currency,
         )
         if result.get("results_count", 0) == 0:
             return None
         cheapest = result["flights"][0]
-        price = cheapest.get("price")
+        price = cheapest.get("price")  # always per-person from search_flights
         if not price or (max_price and price > max_price):
             return None
         return {
@@ -83,12 +90,16 @@ async def cheap_anywhere_from(
             "region": region,
             "origin": origin.upper(),
             "price": price,
+            "price_is_per_person": True,
+            "trip_type": "round_trip" if return_date else "one_way",
             "currency": currency.upper(),
             "departure_date": departure_date,
+            "return_date": return_date,
             "airline": cheapest.get("airline", ""),
             "duration": cheapest.get("duration", ""),
             "stops": cheapest.get("stops"),
             "price_signal": result.get("price_signal", "typical"),
+            "data_confidence": "scraped_live",
         }
 
     coros = [_price_one(iata, city, country, region) for iata, city, country, region in destinations]
@@ -101,6 +112,8 @@ async def cheap_anywhere_from(
     return {
         "origin": origin.upper(),
         "departure_date": departure_date,
+        "return_date": return_date,
+        "trip_type": "round_trip" if return_date else "one_way",
         "month": month,
         "max_price": max_price,
         "regions": regions or "global",
@@ -109,7 +122,9 @@ async def cheap_anywhere_from(
         "destinations": valid,
         "cheapest": valid[0] if valid else None,
         "currency": currency.upper(),
+        "price_is_per_person": True,
         "data_source": "google_flights (looped)",
+        "data_confidence": "scraped_live",
         "tip": "Pass top destinations to plan_itinerary or score_destinations.",
         "suggest_web_search": [
             f"best places from {origin.upper()} {month or 'this year'}",

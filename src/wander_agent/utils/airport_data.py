@@ -121,3 +121,88 @@ def iata_to_city(iata: str) -> str | None:
     if not iata:
         return None
     return _IATA_TO_CITY.get(iata.upper())
+
+
+# ---------------------------------------------------------------------------
+# Nearby airports: primary IATA -> [alternative IATAs in same metro area]
+# ---------------------------------------------------------------------------
+NEARBY_AIRPORTS: dict[str, list[str]] = {
+    # New York
+    "JFK": ["EWR", "LGA"],
+    "EWR": ["JFK", "LGA"],
+    "LGA": ["JFK", "EWR"],
+    # London
+    "LHR": ["LGW", "STN", "LTN", "LCY"],
+    "LGW": ["LHR", "STN", "LTN"],
+    "STN": ["LHR", "LGW", "LTN"],
+    # Washington DC
+    "IAD": ["DCA", "BWI"],
+    "DCA": ["IAD", "BWI"],
+    "BWI": ["IAD", "DCA"],
+    # Los Angeles
+    "LAX": ["BUR", "LGB", "ONT", "SNA"],
+    "BUR": ["LAX", "LGB"],
+    # San Francisco Bay Area
+    "SFO": ["OAK", "SJC"],
+    "OAK": ["SFO", "SJC"],
+    "SJC": ["SFO", "OAK"],
+    # Chicago
+    "ORD": ["MDW"],
+    "MDW": ["ORD"],
+    # Dallas
+    "DFW": ["DAL"],
+    "DAL": ["DFW"],
+    # Miami
+    "MIA": ["FLL", "PBI"],
+    "FLL": ["MIA", "PBI"],
+    # Houston
+    "IAH": ["HOU"],
+    "HOU": ["IAH"],
+    # Dubai
+    "DXB": ["SHJ", "AUH"],
+    "SHJ": ["DXB", "AUH"],
+    "AUH": ["DXB", "SHJ"],
+    # Tokyo
+    "NRT": ["HND"],
+    "HND": ["NRT"],
+    # Osaka
+    "KIX": ["ITM"],
+    "ITM": ["KIX"],
+    # Paris
+    "CDG": ["ORY", "BVA"],
+    "ORY": ["CDG"],
+    # Rome
+    "FCO": ["CIA"],
+    "CIA": ["FCO"],
+    # Milan
+    "MXP": ["LIN", "BGY"],
+    "BGY": ["MXP", "LIN"],
+    # Seoul
+    "ICN": ["GMP"],
+    "GMP": ["ICN"],
+    # Beijing
+    "PEK": ["PKX"],
+    # Shanghai
+    "PVG": ["SHA"],
+    "SHA": ["PVG"],
+    # Bangkok
+    "BKK": ["DMK"],
+    "DMK": ["BKK"],
+    # Toronto
+    "YYZ": ["YTZ"],
+    # Stockholm
+    "ARN": ["BMA", "NYO"],
+}
+
+
+def get_nearby_airports(iata: str) -> list[str]:
+    """Return alternative airports in the same metro area.
+
+    Used to expand searches so "JFK" also checks EWR and LGA.
+
+    Args:
+        iata: Primary IATA code (e.g., "DXB")
+    Returns:
+        List of nearby IATA codes, not including the primary.
+    """
+    return NEARBY_AIRPORTS.get(iata.upper(), [])
