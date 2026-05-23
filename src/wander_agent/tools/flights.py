@@ -187,6 +187,16 @@ def _turkish_airlines_url(origin: str, dest: str, date: str, adults: int) -> str
     )
 
 
+
+def _skyscanner_url(origin: str, dest: str, date: str, adults: int) -> str:
+    from datetime import datetime as _dt
+    sky_date = _dt.strptime(date, "%Y-%m-%d").strftime("%y%m%d")
+    return (
+        f"https://www.skyscanner.com/transport/flights/{origin}/{dest}/{sky_date}/"
+        f"?adults={adults}&cabinclass=economy"
+    )
+
+
 async def search_flights(
     origin: str,
     destination: str,
@@ -253,6 +263,7 @@ async def search_flights(
                 "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
                 "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
                 "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
+                "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
             },
             "error": (
                 "Both Google Flights scraper and Kiwi.com are unavailable. "
@@ -283,6 +294,7 @@ async def search_flights(
                 "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
                 "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
                 "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
+                "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
             },
             "suggest_web_search": [
                 f"{origin} to {destination} mistake fares {departure_date[:7]}",
@@ -294,10 +306,13 @@ async def search_flights(
     cheapest_gf = gf_flights[0]["price"] if gf_flights else None
     cheapest_kiwi = kiwi_fares[0]["price"] if kiwi_fares else None
 
-    if cheapest_gf is not None and cheapest_kiwi is not None:
-        cheapest = min(cheapest_gf, cheapest_kiwi)
+    # Kiwi is live data — prefer it for cheapest_price when available
+    if cheapest_kiwi is not None:
+        cheapest = cheapest_kiwi
+    elif cheapest_gf is not None:
+        cheapest = cheapest_gf
     else:
-        cheapest = cheapest_gf or cheapest_kiwi or 0
+        cheapest = 0
 
     return {
         "origin": origin,
@@ -305,22 +320,23 @@ async def search_flights(
         "departure_date": departure_date,
         "return_date": return_date,
         "passengers": adults,
-        "results_count": len(gf_flights),
-        "flights": gf_flights,
+        "results_count": len(kiwi_fares) or len(gf_flights),
         "kiwi_live_fares": kiwi_fares,
+        "flights": gf_flights,
         # cheapest_price is ALWAYS per-person regardless of adults count.
         # Use cheapest_price_total for the full group cost.
         "cheapest_price": cheapest,
         "cheapest_price_total": round(cheapest * adults, 2),
         "price_is_per_person": True,
         "currency": currency.upper(),
-        "data_confidence": "scraped_live",
+        "data_confidence": "live" if kiwi_fares else "scraped_live",
         "price_signal": (gf or {}).get("price_signal", "typical"),
         "data_source": "google_flights + kiwi.com",
         "booking_links": {
             "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
             "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
             "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
+            "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
         },
         "suggest_web_search": [
             f"{origin} to {destination} mistake fares {departure_date[:7]}",
