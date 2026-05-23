@@ -330,7 +330,7 @@ async def plan_trip_package(
             "data_confidence": "estimated",
         },
 
-        "booking_checklist": _build_checklist(visa_d, adv_level),
+        "booking_checklist": _build_checklist(visa_d, adv_level, flight_d, hotel_d),
 
         "suggest_web_search": [
             f"best neighborhoods to stay in {dest_city}",
@@ -341,7 +341,12 @@ async def plan_trip_package(
     }
 
 
-def _build_checklist(visa_data: dict, advisory_level: int) -> list[dict]:
+def _build_checklist(
+    visa_data: dict,
+    advisory_level: int,
+    flight_data: dict | None = None,
+    hotel_data: dict | None = None,
+) -> list[dict]:
     steps: list[dict] = []
 
     if advisory_level >= 3:
@@ -350,6 +355,7 @@ def _build_checklist(visa_data: dict, advisory_level: int) -> list[dict]:
             "step": "⚠️ Read travel advisory",
             "detail": f"Level {advisory_level} advisory in effect. Check full guidance.",
             "url": "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.html",
+            "booking_links": {},
         })
 
     cat = visa_data.get("category", "")
@@ -360,6 +366,7 @@ def _build_checklist(visa_data: dict, advisory_level: int) -> list[dict]:
             "step": f"📋 Apply for {cat.replace('_', ' ').title()}",
             "detail": visa_data.get("guidance", "Check requirements before booking."),
             "url": apply_url,
+            "booking_links": {},
         })
     elif cat == "visa_on_arrival":
         steps.append({
@@ -367,6 +374,7 @@ def _build_checklist(visa_data: dict, advisory_level: int) -> list[dict]:
             "step": "📋 Visa on arrival — check requirements",
             "detail": visa_data.get("guidance", ""),
             "url": visa_data.get("official_link", ""),
+            "booking_links": {},
         })
     elif cat == "visa_free":
         steps.append({
@@ -374,13 +382,76 @@ def _build_checklist(visa_data: dict, advisory_level: int) -> list[dict]:
             "step": "✅ No visa required",
             "detail": "Verify passport validity (6+ months beyond return date).",
             "url": visa_data.get("official_link", ""),
+            "booking_links": {},
         })
 
+    # Flight booking links — pull all from flight result, add Kiwi book URLs
+    flight_links: dict = {}
+    if flight_data:
+        flight_links = dict(flight_data.get("booking_links") or {})
+        # Add individual Kiwi live fare links
+        kiwi_fares = flight_data.get("kiwi_live_fares", [])
+        for i, fare in enumerate(kiwi_fares[:3], 1):
+            url = fare.get("book_url", "")
+            if url:
+                label = f"kiwi_option_{i} (${fare.get('price','')} {fare.get('duration','')} {fare.get('stops',0)} stop{'s' if fare.get('stops',0)!=1 else ''})"
+                flight_links[label] = url
+
+    flight_primary = (
+        flight_links.get("skyscanner")
+        or flight_links.get("google_flights")
+        or "https://www.google.com/travel/flights"
+    )
+    steps.append({
+        "priority": "HIGH",
+        "step": "✈️ Book flights",
+        "detail": "Compare prices across all options below.",
+        "url": flight_primary,
+        "booking_links": flight_links,
+    })
+
+    # Hotel booking links — pull all from hotel result
+    hotel_links: dict = {}
+    if hotel_data:
+        hotel_links = dict(hotel_data.get("booking_links") or {})
+
+    hotel_primary = hotel_links.get("booking_com", "https://www.booking.com")
+    steps.append({
+        "priority": "HIGH",
+        "step": "🏨 Book accommodation",
+        "detail": "Compare across all options below. Prices shown on each site.",
+        "url": hotel_primary,
+        "booking_links": hotel_links,
+    })
+
     steps += [
-        {"priority": "HIGH",   "step": "✈️ Book flights",        "detail": "Use booking_links in the flights section.",    "url": "https://www.google.com/travel/flights"},
-        {"priority": "HIGH",   "step": "🏨 Book accommodation",   "detail": "Use booking_links in the hotels section.",     "url": "https://www.booking.com"},
-        {"priority": "MEDIUM", "step": "🛡️ Get travel insurance", "detail": "Medical + cancellation + lost luggage.",        "url": "https://www.insureandgo.com"},
-        {"priority": "MEDIUM", "step": "💉 Check vaccinations",   "detail": "CDC traveler health notices.",                  "url": "https://wwwnc.cdc.gov/travel"},
-        {"priority": "LOW",    "step": "📱 Get local SIM / eSIM", "detail": "Airalo for eSIM data in 190+ countries.",        "url": "https://www.airalo.com"},
+        {
+            "priority": "MEDIUM",
+            "step": "🛡️ Get travel insurance",
+            "detail": "Medical + cancellation + lost luggage.",
+            "url": "https://www.insureandgo.com",
+            "booking_links": {
+                "insureandgo": "https://www.insureandgo.com",
+                "world_nomads": "https://www.worldnomads.com",
+                "safetywing": "https://www.safetywing.com",
+            },
+        },
+        {
+            "priority": "MEDIUM",
+            "step": "💉 Check vaccinations",
+            "detail": "CDC traveler health notices.",
+            "url": "https://wwwnc.cdc.gov/travel",
+            "booking_links": {},
+        },
+        {
+            "priority": "LOW",
+            "step": "📱 Get local SIM / eSIM",
+            "detail": "Airalo covers 190+ countries. Holafly good for unlimited data.",
+            "url": "https://www.airalo.com",
+            "booking_links": {
+                "airalo": "https://www.airalo.com",
+                "holafly": "https://www.holafly.com",
+            },
+        },
     ]
     return steps
