@@ -160,6 +160,33 @@ async def _search_fast_flights(
     }
 
 
+
+def _expedia_flight_url(origin: str, dest: str, date: str, adults: int) -> str:
+    from datetime import datetime as _dt
+    from urllib.parse import quote as _q
+    exp_date = _dt.strptime(date, "%Y-%m-%d").strftime("%m/%d/%Y")
+    leg = f"from:{origin},to:{dest},departure:{exp_date}TANYT"
+    return (
+        f"https://www.expedia.com/Flights-Search"
+        f"?trip=oneway&leg1={_q(leg)}"
+        f"&passengers=adults:{adults}&mode=search&options=cabinclass:economy"
+    )
+
+
+def _lastminute_flight_url(origin: str, dest: str, date: str, adults: int) -> str:
+    return f"https://www.lastminute.com/flights/{origin}-{dest}/{date}/?adults={adults}"
+
+
+def _turkish_airlines_url(origin: str, dest: str, date: str, adults: int) -> str:
+    from datetime import datetime as _dt
+    ta_date = _dt.strptime(date, "%Y-%m-%d").strftime("%d.%m.%Y")
+    return (
+        f"https://www.turkishairlines.com/en-int/flights/"
+        f"?from={origin}&to={dest}&D_Date={ta_date}"
+        f"&adult={adults}&child=0&infant=0&port=1"
+    )
+
+
 async def search_flights(
     origin: str,
     destination: str,
@@ -222,6 +249,11 @@ async def search_flights(
             "results_count": 0,
             "flights": [],
             "kiwi_live_fares": [],
+            "booking_links": {
+                "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
+                "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
+                "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
+            },
             "error": (
                 "Both Google Flights scraper and Kiwi.com are unavailable. "
                 "Try again in a few minutes."
@@ -247,6 +279,11 @@ async def search_flights(
             "data_confidence": "live",
             "data_source": "kiwi.com",
             "note": "Google Flights unavailable. Showing Kiwi.com live fares only.",
+            "booking_links": {
+                "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
+                "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
+                "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
+            },
             "suggest_web_search": [
                 f"{origin} to {destination} mistake fares {departure_date[:7]}",
                 f"{origin} to {destination} cheap flight tips reddit",
@@ -280,6 +317,11 @@ async def search_flights(
         "data_confidence": "scraped_live",
         "price_signal": (gf or {}).get("price_signal", "typical"),
         "data_source": "google_flights + kiwi.com",
+        "booking_links": {
+            "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
+            "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
+            "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
+        },
         "suggest_web_search": [
             f"{origin} to {destination} mistake fares {departure_date[:7]}",
             f"{origin} to {destination} cheap flight tips reddit",
