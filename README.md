@@ -32,6 +32,48 @@ python -c "import wander_agent; print('ok')"
 
 ---
 
+## Claude.ai Chat — Remote Deploy
+
+Claude.ai web only connects to **remote HTTP MCP servers** — it cannot reach a process running on your laptop. To use wander-agent from Claude.ai, deploy it to a public host first.
+
+### Deploy to Railway (free tier)
+
+1. Fork or push this repo to your GitHub account.
+2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**.
+3. Select your fork. Railway auto-detects the `Dockerfile`.
+4. Set one environment variable in Railway's dashboard:
+   ```
+   WANDER_TRANSPORT=streamable-http
+   ```
+   `PORT` is set automatically by Railway.
+5. Deploy. Railway gives you a public URL like `https://wander-agent-production.up.railway.app`.
+
+### Add to Claude.ai
+
+1. Go to [claude.ai](https://claude.ai) → Settings → **Integrations**.
+2. Click **Add integration**.
+3. Enter your Railway URL: `https://your-app.up.railway.app/mcp`
+4. Name it `wander-agent`. Save.
+
+The server uses `streamable-http` transport — the format Claude.ai requires.
+
+### Recommended companion servers on Claude.ai
+
+These public MCP servers complement wander-agent. Add them the same way:
+
+| Server | URL | What it adds |
+|--------|-----|--------------|
+| Kiwi.com | `https://mcp.kiwi.com` | Real-time flight search with live prices |
+| TourRadar | `https://mcp.tourradar.com` | Guided tours and multi-day packages |
+
+Both are free, no API key required. Kiwi.com especially fills the gap for live flight pricing that wander-agent covers via deeplinks.
+
+### Run locally for Claude Desktop / Claude Code
+
+Local clients (Claude Desktop, Cursor, etc.) use `stdio` transport — no deploy needed. Skip this section and go to **MCP Client Setup** below.
+
+---
+
 ## MCP Client Setup
 
 The server entry point is `wander-agent` (installed by pip/uv).

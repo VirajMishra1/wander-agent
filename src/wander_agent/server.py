@@ -903,7 +903,14 @@ async def tool_plan_trip_package(
 
 
 def main():
-    mcp.run(transport="stdio")
+    import os
+    transport = os.environ.get("WANDER_TRANSPORT", "stdio")
+    host = os.environ.get("WANDER_HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8000"))
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        mcp.run(transport=transport, host=host, port=port)
 
 
 if __name__ == "__main__":
