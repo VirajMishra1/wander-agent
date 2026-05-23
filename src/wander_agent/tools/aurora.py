@@ -105,6 +105,16 @@ async def find_aurora_destinations(
                 if aurora_season:
                     aurora_score += 5
 
+                from .flights import (
+                    _skyscanner_url, _google_flights_url,
+                    _expedia_flight_url, _lastminute_flight_url,
+                )
+                booking_links = flight.get("booking_links") or {
+                    "skyscanner": _skyscanner_url(origin, iata, sample_date.isoformat(), 1),
+                    "google_flights": _google_flights_url(origin, iata, sample_date.isoformat(), 1),
+                    "expedia": _expedia_flight_url(origin, iata, sample_date.isoformat(), 1),
+                    "lastminute": _lastminute_flight_url(origin, iata, sample_date.isoformat(), 1),
+                }
                 return {
                     "destination": city,
                     "destination_airport": iata,
@@ -116,7 +126,8 @@ async def find_aurora_destinations(
                     "sample_departure_date": sample_date.isoformat(),
                     "aurora_season": aurora_season,
                     "best_viewing_months": "Sep-Apr",
-                    "booking_url": f"https://www.google.com/travel/flights?q=Flights%20to%20{city}",
+                    "booking_links": booking_links,
+                    "kiwi_live_fares": flight.get("kiwi_live_fares", []),
                 }
             except Exception:
                 return None

@@ -134,9 +134,15 @@ async def score_destinations(
         else:
             w_score = max(0, 10 - abs(avg_temp - 22) - rainy_pct * 3)
 
+        flight_booking_links = flight_result.get("booking_links", {}) if isinstance(flight_result, dict) else {}
+        hotel_booking_links = hotels.get("booking_links", {}) if isinstance(hotels, dict) else {}
+        kiwi_live_fares = flight_result.get("kiwi_live_fares", []) if isinstance(flight_result, dict) else []
         return {
             "destination": dest,
             "country": country,
+            "flight_booking_links": flight_booking_links,
+            "hotel_booking_links": hotel_booking_links,
+            "kiwi_live_fares": kiwi_live_fares,
             "metrics": {
                 "avg_temp_c": avg_temp,
                 "rainy_days_pct": round(rainy_pct * 100, 1),

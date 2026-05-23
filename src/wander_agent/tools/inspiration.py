@@ -308,6 +308,9 @@ async def compare_destinations(
         hotel_per_night = hotel.get("cheapest_price_per_night") or 0
         hotel_total = hotel_per_night * nights
 
+        flight_booking_links = flight.get("booking_links", {}) if isinstance(flight, dict) else {}
+        hotel_booking_links = hotel.get("booking_links", {}) if isinstance(hotel, dict) else {}
+        kiwi_live_fares = flight.get("kiwi_live_fares", []) if isinstance(flight, dict) else []
         return {
             "destination": dest_city,
             "destination_airport": dest_iata,
@@ -319,6 +322,9 @@ async def compare_destinations(
             "currency": currency.upper(),
             "nights": nights,
             "hotel_data_available": bool(hotel_per_night),
+            "flight_booking_links": flight_booking_links,
+            "hotel_booking_links": hotel_booking_links,
+            "kiwi_live_fares": kiwi_live_fares,
         }
 
     results = await asyncio.gather(*[_fetch(d) for d in dest_list])

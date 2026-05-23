@@ -73,14 +73,17 @@ async def optimize_budget(
         for combo, result in zip(batch, results):
             if isinstance(result, Exception):
                 continue
-            if result.get("flights"):
-                cheapest = result["flights"][0]
+            price = result.get("cheapest_price")
+            if not price and result.get("flights"):
+                price = result["flights"][0].get("price")
+            if price:
                 flight_results.append({
                     "departure_date": combo["dep"],
                     "return_date": combo["ret"],
-                    "price": cheapest["price"],
-                    "currency": cheapest["currency"],
-                    "flight_details": cheapest,
+                    "price": price,
+                    "currency": result.get("currency", currency),
+                    "booking_links": result.get("booking_links", {}),
+                    "kiwi_live_fares": result.get("kiwi_live_fares", []),
                 })
 
     # Search hotels - translate IATA destination code to city name
@@ -123,6 +126,8 @@ async def optimize_budget(
             "hotel_total": hotel_total,
             "grand_total": round(total, 2),
             "currency": currency,
+            "flight_booking_links": flight.get("booking_links", {}),
+            "kiwi_live_fares": flight.get("kiwi_live_fares", []),
         })
 
     combinations.sort(key=lambda x: x["grand_total"])
@@ -135,16 +140,20 @@ async def optimize_budget(
         )
         savings = round(original["grand_total"] - combinations[0]["grand_total"], 2)
 
+    best = combinations[0] if combinations else None
     return {
         "origin": origin,
         "destination": destination,
         "preferred_dates": {"departure": departure_date, "return": return_date},
         "adults": adults,
         "dates_searched": len(date_combos),
-        "best_combination": combinations[0] if combinations else None,
+        "best_combination": best,
         "all_combinations": combinations[:5],
         "potential_savings": savings,
         "currency": currency,
         "hotel_options": hotel_result.get("hotels", [])[:3],
+        "hotel_booking_links": hotel_result.get("booking_links", {}),
+        "flight_booking_links": best.get("flight_booking_links", {}) if best else {},
+        "kiwi_live_fares": best.get("kiwi_live_fares", []) if best else [],
         "tip": f"You could save {currency} {savings} by shifting dates!" if savings > 0 else "Your preferred dates are already the cheapest.",
     }
