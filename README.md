@@ -71,47 +71,6 @@ claude mcp list
 
 ---
 
-## Claude.ai (web)
-
-Claude.ai only connects to remote HTTP servers. You need to deploy wander-agent to a public URL first.
-
-### Deploy to Railway
-
-1. Fork this repo to your GitHub account.
-2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo.
-3. Select your fork. Railway detects the `Dockerfile` automatically.
-4. Set one environment variable in Railway's dashboard:
-   ```
-   WANDER_TRANSPORT=streamable-http
-   ```
-5. Deploy. You get a URL like `https://wander-agent-production.up.railway.app`.
-
-### Add to Claude.ai
-
-1. claude.ai → Settings → Integrations → Add integration.
-2. URL: `https://your-app.up.railway.app/mcp`
-3. Name: `wander-agent`
-
----
-
-## OpenAI Codex / Agents API
-
-OpenAI's Agents API does not natively support MCP. Two options:
-
-**Option 1 — Use the Python functions directly:**
-```python
-from wander_agent.tools.flights import search_flights
-from wander_agent.tools.visa import check_visa_requirement
-import asyncio
-
-result = asyncio.run(search_flights("JFK", "LHR", "2026-08-15", adults=2))
-```
-
-**Option 2 — Bridge via mcp-agent:**
-Use [lastmile-ai/mcp-agent](https://github.com/lastmile-ai/mcp-agent) to proxy MCP tools into OpenAI function-call format.
-
----
-
 ## Tools
 
 ### Flights
