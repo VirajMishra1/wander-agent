@@ -1,11 +1,11 @@
-"""Flight search via fast_flights (Google Flights scraper).
+"""Flight search — Google Flights + Kiwi.com live prices.
 
-Real Google Flights data, no API key required.
-Has retry across fetch modes (common, fallback) to handle stripped-HTML
-responses. Falls back to a clear error if Google blocks/changes layout.
+Runs both sources in parallel:
+  - fast_flights: Google Flights scraper (airline names, typical prices)
+  - kiwi_client: Kiwi MCP live search (real bookable prices + deeplinks)
 
-Note: Kiwi Tequila was previously the fallback but their public sandbox
-closed in 2024 (partner-only now).
+Kiwi results appear as kiwi_live_fares in the response.
+If Google Flights is blocked, Kiwi results promote to primary.
 """
 
 from __future__ import annotations
@@ -170,7 +170,11 @@ async def search_flights(
     currency: str = "USD",
     nonstop_only: bool = False,
 ) -> dict:
-    """Search flights via Google Flights (fast_flights) with Kiwi Tequila fallback.
+    """Search flights via Google Flights + Kiwi.com live prices.
+
+    Runs both sources in parallel. Returns merged results:
+    - flights[]: Google Flights data (airline names, scraper)
+    - kiwi_live_fares[]: Kiwi live prices with direct booking links
 
     Args:
         origin: IATA airport code (e.g., "JFK")
@@ -178,37 +182,71 @@ async def search_flights(
         departure_date: YYYY-MM-DD
         return_date: YYYY-MM-DD for round trip
         adults: Passengers
-        max_results: Max results
+        max_results: Max results per source
         currency: Target currency (prices converted)
         nonstop_only: Skip flights with stops
     """
     origin = origin.upper().strip()
     destination = destination.upper().strip()
 
-    # Try Google Flights first
-    gf = await _search_fast_flights(
+    from ..utils.kiwi_client import search_kiwi_flights
+
+    # Run Google Flights + Kiwi in parallel
+    gf_task = _search_fast_flights(
         origin, destination, departure_date, return_date,
         adults, max_results, currency, nonstop_only,
     )
-    if gf and gf["flights"]:
-        cheapest = gf["flights"][0]["price"]
+    kiwi_task = search_kiwi_flights(
+        origin, destination, departure_date, return_date,
+        adults, currency, max_results, nonstop_only,
+    )
+    gf, kiwi_fares = await asyncio.gather(gf_task, kiwi_task, return_exceptions=True)
+
+    # Coerce exceptions to None / []
+    if isinstance(gf, Exception):
+        gf = None
+    if isinstance(kiwi_fares, Exception):
+        kiwi_fares = []
+    kiwi_fares = kiwi_fares or []
+
+    gf_flights = (gf or {}).get("flights", [])
+    has_gf = bool(gf_flights)
+    has_kiwi = bool(kiwi_fares)
+
+    if not has_gf and not has_kiwi:
+        return {
+            "origin": origin,
+            "destination": destination,
+            "departure_date": departure_date,
+            "return_date": return_date,
+            "results_count": 0,
+            "flights": [],
+            "kiwi_live_fares": [],
+            "error": (
+                "Both Google Flights scraper and Kiwi.com are unavailable. "
+                "Try again in a few minutes."
+            ),
+        }
+
+    # If Google Flights failed, promote Kiwi as primary
+    if not has_gf and has_kiwi:
+        cheapest = kiwi_fares[0]["price"]
         return {
             "origin": origin,
             "destination": destination,
             "departure_date": departure_date,
             "return_date": return_date,
             "passengers": adults,
-            "results_count": len(gf["flights"]),
-            "flights": gf["flights"],
-            # cheapest_price is ALWAYS per-person regardless of adults count.
-            # Use cheapest_price_total for the full group cost.
+            "results_count": len(kiwi_fares),
+            "flights": [],
+            "kiwi_live_fares": kiwi_fares,
             "cheapest_price": cheapest,
             "cheapest_price_total": round(cheapest * adults, 2),
             "price_is_per_person": True,
             "currency": currency.upper(),
-            "data_confidence": "scraped_live",
-            "price_signal": gf.get("price_signal", "typical"),
-            "data_source": gf["source"],
+            "data_confidence": "live",
+            "data_source": "kiwi.com",
+            "note": "Google Flights unavailable. Showing Kiwi.com live fares only.",
             "suggest_web_search": [
                 f"{origin} to {destination} mistake fares {departure_date[:7]}",
                 f"{origin} to {destination} cheap flight tips reddit",
@@ -216,12 +254,35 @@ async def search_flights(
             ],
         }
 
+    cheapest_gf = gf_flights[0]["price"] if gf_flights else None
+    cheapest_kiwi = kiwi_fares[0]["price"] if kiwi_fares else None
+
+    if cheapest_gf is not None and cheapest_kiwi is not None:
+        cheapest = min(cheapest_gf, cheapest_kiwi)
+    else:
+        cheapest = cheapest_gf or cheapest_kiwi or 0
+
     return {
         "origin": origin,
         "destination": destination,
         "departure_date": departure_date,
         "return_date": return_date,
-        "results_count": 0,
-        "flights": [],
-        "error": "Google Flights scraper unavailable (Google may be rate-limiting or HTML changed). Try again in a few minutes.",
+        "passengers": adults,
+        "results_count": len(gf_flights),
+        "flights": gf_flights,
+        "kiwi_live_fares": kiwi_fares,
+        # cheapest_price is ALWAYS per-person regardless of adults count.
+        # Use cheapest_price_total for the full group cost.
+        "cheapest_price": cheapest,
+        "cheapest_price_total": round(cheapest * adults, 2),
+        "price_is_per_person": True,
+        "currency": currency.upper(),
+        "data_confidence": "scraped_live",
+        "price_signal": (gf or {}).get("price_signal", "typical"),
+        "data_source": "google_flights + kiwi.com",
+        "suggest_web_search": [
+            f"{origin} to {destination} mistake fares {departure_date[:7]}",
+            f"{origin} to {destination} cheap flight tips reddit",
+            f"airline strikes affecting {origin} {destination} {departure_date[:7]}",
+        ],
     }
