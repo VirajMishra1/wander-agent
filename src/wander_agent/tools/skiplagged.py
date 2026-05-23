@@ -169,4 +169,18 @@ async def find_skiplagged_fares(
             ],
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "origin": origin.upper(),
+            "destination": destination.upper(),
+            "departure_date": departure_date,
+            "error": f"Skiplagged API unavailable: {e}",
+            "fallback_url": (
+                f"https://skiplagged.com/flights/{origin.upper()}/{destination.upper()}"
+                f"/{departure_date}/?adults=1"
+            ),
+            "note": (
+                "Skiplagged's undocumented API is intermittently rate-limited. "
+                "Use fallback_url to search manually. Hidden-city fares still exist — "
+                "Skiplagged typically shows savings of 20-60% on connecting routes."
+            ),
+        }
