@@ -197,6 +197,17 @@ def _skyscanner_url(origin: str, dest: str, date: str, adults: int) -> str:
     )
 
 
+
+def _google_flights_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None) -> str:
+    # Google Flights hash format pre-fills origin, destination, date, pax
+    trip = "f" if not return_date else "r"
+    base = f"https://www.google.com/travel/flights#flt={origin}.{dest}.{date}"
+    if return_date:
+        base += f"*{dest}.{origin}.{return_date}"
+    base += f";c:USD;e:1;sd:1;t:{trip};q:{adults}"
+    return base
+
+
 async def search_flights(
     origin: str,
     destination: str,
@@ -264,6 +275,7 @@ async def search_flights(
                 "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
                 "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
                 "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
+                "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date),
             },
             "error": (
                 "Both Google Flights scraper and Kiwi.com are unavailable. "
@@ -295,6 +307,7 @@ async def search_flights(
                 "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
                 "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
                 "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
+                "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date),
             },
             "suggest_web_search": [
                 f"{origin} to {destination} mistake fares {departure_date[:7]}",
@@ -337,6 +350,7 @@ async def search_flights(
             "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
             "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
             "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
+            "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date),
         },
         "suggest_web_search": [
             f"{origin} to {destination} mistake fares {departure_date[:7]}",
