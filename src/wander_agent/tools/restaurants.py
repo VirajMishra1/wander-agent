@@ -30,20 +30,30 @@ def _price_label(osm_level: str | None, cuisine: str) -> str:
     return "$$"
 
 
-def _deeplinks(name: str, lat: float, lon: float, city_hint: str, amenity: str) -> dict:
-    n = name.replace(" ", "+")
-    loc = city_hint.replace(" ", "+")
+def _deeplinks(
+    name: str, lat: float, lon: float, city_hint: str, amenity: str,
+    party_size: int = 2,
+) -> dict:
+    from urllib.parse import quote_plus as _qp
+    n = _qp(name)
+    loc = _qp(city_hint)
     links: dict = {
-        "google_maps": f"https://www.google.com/maps/search/{n}/@{lat},{lon},17z",
-        "google_reviews": f"https://www.google.com/search?q={n}+{loc}+restaurant+reviews",
+        "google_maps": f"https://www.google.com/maps/search/{_qp(name)}/@{lat},{lon},17z",
+        "google_reviews": f"https://www.google.com/search?q={n}+{loc}+reviews",
         "zomato": f"https://www.zomato.com/search?q={n}&location={loc}",
         "tripadvisor": f"https://www.tripadvisor.com/Search?q={n}+{loc}",
         "yelp": f"https://www.yelp.com/search?find_desc={n}&find_loc={loc}",
         "foursquare": f"https://foursquare.com/explore?q={n}&near={loc}",
     }
     if amenity == "restaurant":
-        links["opentable"] = f"https://www.opentable.com/s/?restaurantName={n}&metroName={loc}"
-        links["resy"] = f"https://resy.com/cities/search?query={n}"
+        from datetime import datetime as _dt
+        today = _dt.now().strftime("%Y-%m-%d")
+        links["opentable"] = (
+            f"https://www.opentable.com/s/?restaurantName={n}&metroName={loc}"
+            f"&covers={party_size}&dateTime={today}T19%3A00"
+        )
+        # Resy needs venue slug which we don't have — use their city search
+        links["resy"] = f"https://resy.com/cities/search?query={n}&location={loc}"
     if amenity in ("bar", "pub", "cocktail_bar", "biergarten"):
         links["untappd"] = f"https://untappd.com/search?q={n}"
     return links
