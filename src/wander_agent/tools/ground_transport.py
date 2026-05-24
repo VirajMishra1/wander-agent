@@ -41,11 +41,11 @@ _DEEPLINKS = {
 
 # Which services to show per region
 _REGIONAL_SERVICES = {
-    "us": ["amtrak", "greyhound", "megabus", "ourbus", "flixbus", "busbud", "rome2rio"],
-    "europe": ["flixbus", "blablacar_bus", "trainline", "busbud", "rome2rio"],
-    "india": ["irctc", "busbud", "rome2rio"],
-    "sea": ["12go", "busbud", "rome2rio"],
-    "global": ["busbud", "rome2rio"],
+    "us": ["amtrak", "greyhound", "megabus", "ourbus", "flixbus", "busbud"],
+    "europe": ["flixbus", "blablacar_bus", "trainline", "busbud"],
+    "india": ["irctc", "busbud"],
+    "sea": ["12go", "busbud"],
+    "global": ["busbud"],
 }
 
 # City -> Amtrak station code

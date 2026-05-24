@@ -3,6 +3,15 @@
 from __future__ import annotations
 
 
+# Descriptions that indicate administrative divisions, not tourist attractions
+_ADMIN_DESC_KEYWORDS = frozenset({
+    "municipality", "civil parish", "parish", "commune", "borough",
+    "county", "district", "arrondissement", "township", "province",
+    "prefecture", "ward", "neighbourhood", "neighborhood", "suburb",
+    "administrative", "populated place", "human settlement",
+    "urban district", "rural district", "local government",
+})
+
 CATEGORIES = {
     "culture": "Q570116",
     "nature": "Q1286517",
@@ -58,7 +67,7 @@ async def search_activities(
       {kind_filter}
       OPTIONAL {{ ?item schema:description ?desc . FILTER(LANG(?desc) = "en") }}
       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
-    }} LIMIT {min(max_results * 2, 40)}
+    }} LIMIT {min(max_results * 4, 80)}
     """
     try:
         resp = await client.get(
@@ -77,6 +86,11 @@ async def search_activities(
                 name = b.get("itemLabel", {}).get("value", "")
                 if not name or name.startswith("Q"):
                     continue
+                desc = b.get("desc", {}).get("value", "")
+                # Skip administrative divisions (municipalities, parishes, etc.)
+                desc_lower = desc.lower()
+                if any(kw in desc_lower for kw in _ADMIN_DESC_KEYWORDS):
+                    continue
                 coord_str = b.get("coord", {}).get("value", "")
                 lat_r = lon_r = None
                 if coord_str.startswith("Point("):
@@ -89,7 +103,7 @@ async def search_activities(
                     "distance_m": None,
                     "latitude": lat_r,
                     "longitude": lon_r,
-                    "description": b.get("desc", {}).get("value", "")[:300],
+                    "description": desc[:300],
                     "website": "",
                     "image": "",
                     "rating": None,

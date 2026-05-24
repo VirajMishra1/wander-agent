@@ -22,6 +22,88 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta
 
+# Country name (from geocode) → ISO-2 for visa check
+_COUNTRY_TO_ISO2: dict[str, str] = {
+    "japan": "JP", "china": "CN", "south korea": "KR", "thailand": "TH",
+    "singapore": "SG", "indonesia": "ID", "malaysia": "MY", "vietnam": "VN",
+    "philippines": "PH", "india": "IN", "sri lanka": "LK", "maldives": "MV",
+    "nepal": "NP", "cambodia": "KH", "myanmar": "MM", "laos": "LA",
+    "france": "FR", "germany": "DE", "italy": "IT", "spain": "ES",
+    "united kingdom": "GB", "netherlands": "NL", "portugal": "PT",
+    "greece": "GR", "turkey": "TR", "austria": "AT", "switzerland": "CH",
+    "belgium": "BE", "czech republic": "CZ", "hungary": "HU", "poland": "PL",
+    "croatia": "HR", "sweden": "SE", "norway": "NO", "denmark": "DK",
+    "finland": "FI", "ireland": "IE", "iceland": "IS", "romania": "RO",
+    "united states": "US", "canada": "CA", "mexico": "MX", "brazil": "BR",
+    "argentina": "AR", "colombia": "CO", "peru": "PE", "chile": "CL",
+    "costa rica": "CR", "cuba": "CU", "jamaica": "JM", "bahamas": "BS",
+    "australia": "AU", "new zealand": "NZ", "fiji": "FJ",
+    "united arab emirates": "AE", "saudi arabia": "SA", "qatar": "QA",
+    "egypt": "EG", "morocco": "MA", "south africa": "ZA", "kenya": "KE",
+    "tanzania": "TZ", "ethiopia": "ET", "nigeria": "NG", "ghana": "GH",
+    "israel": "IL", "jordan": "JO", "hong kong": "HK", "taiwan": "TW",
+    "russia": "RU", "ukraine": "UA", "georgia": "GE",
+    "bahrain": "BH", "oman": "OM", "kuwait": "KW",
+}
+
+
+def _country_iso2(country_name: str) -> str | None:
+    return _COUNTRY_TO_ISO2.get(country_name.lower().strip())
+
+
+_US_AIRPORTS = {
+    "JFK","EWR","LGA","LAX","SFO","ORD","ATL","DFW","DEN","SEA","MIA",
+    "BOS","IAD","MCO","PHX","DTW","MSP","PHL","CLT","LAS","SAN","PDX",
+}
+_EU_AIRPORTS = {
+    "LHR","LGW","STN","CDG","ORY","AMS","FRA","MAD","BCN","FCO","CIA",
+    "MUC","VIE","ZRH","ARN","OSL","CPH","DUB","BRU","LIS","ATH","WAW",
+    "PRG","BUD","HEL","IST","SAW","DUS","HAM","TXL","BER",
+}
+_ASIA_AIRPORTS = {
+    "NRT","HND","KIX","ICN","GMP","BKK","DMK","SIN","HKG","DEL","BOM",
+    "DXB","AUH","SHJ","DOH","KUL","DPS","CGK","PVG","PEK","TPE","MNL",
+    "SGN","HAN","DAD","CMB","MLE","KTM","CCU","MAA","BLR","HYD",
+}
+
+
+def _is_intercontinental(origin_iata: str, dest_city_lower: str) -> bool:
+    o = origin_iata.upper()
+
+    def _oc():
+        if o in _US_AIRPORTS: return "us"
+        if o in _EU_AIRPORTS: return "europe"
+        if o in _ASIA_AIRPORTS: return "asia"
+        return None
+
+    def _dc(d):
+        asia_kw = {
+            "tokyo","osaka","kyoto","seoul","busan","bangkok","phuket",
+            "singapore","hong kong","delhi","mumbai","bangalore","kolkata",
+            "bali","jakarta","kuala lumpur","hanoi","ho chi minh","saigon",
+            "dubai","abu dhabi","doha","riyadh","taipei","manila","yangon",
+            "kathmandu","colombo","maldives","beijing","shanghai","guangzhou",
+        }
+        eu_kw = {
+            "paris","london","rome","barcelona","amsterdam","berlin","madrid",
+            "lisbon","vienna","prague","budapest","warsaw","athens","istanbul",
+            "dublin","brussels","zurich","stockholm","oslo","copenhagen","helsinki",
+            "krakow","florence","venice","milan","porto","seville","valencia",
+        }
+        us_kw = {
+            "new york","los angeles","chicago","miami","san francisco","seattle",
+            "boston","washington","las vegas","orlando","denver","atlanta","dallas",
+            "houston","phoenix","portland","nashville","new orleans","honolulu",
+        }
+        if any(k in d for k in asia_kw): return "asia"
+        if any(k in d for k in eu_kw): return "europe"
+        if any(k in d for k in us_kw): return "us"
+        return None
+
+    oc, dc = _oc(), _dc(dest_city_lower)
+    return oc is not None and dc is not None and oc != dc
+
+
 
 async def plan_trip_package(
     origin: str,
@@ -120,13 +202,17 @@ async def plan_trip_package(
         if country_name else asyncio.sleep(0, result={})
     )
     visa_task = (
-        check_visa_requirement(passport_country, dest_iata[:2])
+        check_visa_requirement(
+            passport_country,
+            _country_iso2(country_name) or dest_iata[:2],
+        )
         if passport_country else asyncio.sleep(0, result={})
     )
     activities_task = (
         search_activities(lat, lon, radius_km=15, max_results=8)
         if lat and lon else asyncio.sleep(0, result={})
     )
+    _intercontinental = _is_intercontinental(origin_iata, dest_city.lower())
     ground_task = (
         search_ground_transport(
             origin_city=iata_to_city(origin_iata) or origin,
@@ -134,7 +220,11 @@ async def plan_trip_package(
             date=departure_date,
             travelers=travelers,
         )
-        if include_ground_transport else asyncio.sleep(0, result={})
+        if include_ground_transport and not _intercontinental
+        else asyncio.sleep(0, result={
+            "note": "Intercontinental route — ground transport not applicable. Fly direct.",
+            "booking_links": [],
+        })
     )
     country_task = (
         get_destination_info(country_name)

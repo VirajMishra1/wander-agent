@@ -61,9 +61,9 @@ async def plan_itinerary(
         interest_list = [i.strip() for i in (interests or "").split(",") if i.strip()]
         if interest_list:
             for interest in interest_list[:3]:
-                tasks[f"activities_{interest}"] = search_activities(lat, lon, radius_km=15, category=interest, max_results=10)
+                tasks[f"activities_{interest}"] = search_activities(lat, lon, radius_km=8, category=interest, max_results=12)
         else:
-            tasks["activities_all"] = search_activities(lat, lon, radius_km=15, max_results=20)
+            tasks["activities_all"] = search_activities(lat, lon, radius_km=8, max_results=25)
 
     if country:
         tasks["country_info"] = get_destination_info(country)
