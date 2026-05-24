@@ -4,6 +4,15 @@ from __future__ import annotations
 
 
 # Descriptions that indicate administrative divisions, not tourist attractions
+# Name patterns that indicate non-tourist items (matched against name, not description)
+_BAD_NAME_KEYWORDS = frozenset({
+    "post office", "bus company", "bus depot", "city bus", "taxi",
+    "hospital", "clinic", "pharmacy", "police station", "fire station",
+    "elementary school", "junior high", "high school", "primary school",
+    "art college", "university hospital", "katsura hospital",
+    "city hall", "ward office", "government office",
+})
+
 _ADMIN_DESC_KEYWORDS = frozenset({
     "municipality", "civil parish", "parish", "commune", "borough",
     "county", "district", "arrondissement", "township", "province",
@@ -101,6 +110,18 @@ async def search_activities(
                 # Skip administrative divisions (municipalities, parishes, etc.)
                 desc_lower = desc.lower()
                 if any(kw in desc_lower for kw in _ADMIN_DESC_KEYWORDS):
+                    continue
+                # Skip non-tourist items by name patterns
+                name_lower = name.lower()
+                if any(kw in name_lower for kw in _BAD_NAME_KEYWORDS):
+                    continue
+                # Skip items with generic transport/infrastructure names
+                if (name_lower.endswith(" bus") or name_lower.endswith(" buses")
+                        or " post office" in name_lower
+                        or " hospital" in name_lower
+                        or " school" in name_lower and "art school" not in name_lower
+                        or "healthcare" in desc_lower
+                        or desc_lower.startswith("healthcare")):
                     continue
                 coord_str = b.get("coord", {}).get("value", "")
                 lat_r = lon_r = None
