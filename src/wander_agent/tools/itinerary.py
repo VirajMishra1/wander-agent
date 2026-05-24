@@ -33,6 +33,7 @@ async def plan_itinerary(
         include_activities: Fetch nearby activities and attractions
     """
     from .activities import search_activities
+    from .restaurants import search_restaurants_bars
     from .currency import convert_currency
     from .destination import geocode, get_destination_info
     from .weather import get_weather
@@ -64,6 +65,12 @@ async def plan_itinerary(
                 tasks[f"activities_{interest}"] = search_activities(lat, lon, radius_km=8, category=interest, max_results=12)
         else:
             tasks["activities_all"] = search_activities(lat, lon, radius_km=8, max_results=25)
+
+    # Always fetch restaurants/bars for the destination
+    tasks["restaurants"] = search_restaurants_bars(
+        lat, lon, category="all", radius_m=1500, max_results=10,
+        city=destination.split(",")[0].strip(),
+    )
 
     if country:
         tasks["country_info"] = get_destination_info(country)
@@ -145,6 +152,25 @@ async def plan_itinerary(
         "weather_summary": results.get("weather", {}).get("summary"),
         "daily_plan": days,
         "total_activities_found": len(unique_activities),
+        "restaurants_bars": {
+            "places": [
+                {
+                    "name": r["name"],
+                    "type": r.get("type"),
+                    "cuisine": r.get("cuisine"),
+                    "price_level": r.get("price_level"),
+                    "rating": r.get("rating"),
+                    "distance_m": r.get("distance_m"),
+                    "opening_hours": r.get("opening_hours"),
+                    "features": r.get("features", {}),
+                    "booking_links": r.get("booking_links", {}),
+                }
+                for r in (results.get("restaurants", {}).get("places") or [])[:10]
+                if r.get("name")
+            ],
+            "highlights": results.get("restaurants", {}).get("highlights", {}),
+            "tip": "Set FOURSQUARE_API_KEY for real ratings.",
+        },
         "note": "Structured data for AI to build narrative itinerary. Activities are real.",
         "suggest_web_search": [
             f"best restaurants {destination} {(interests or 'food').split(',')[0].strip()} reddit",

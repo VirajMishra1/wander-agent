@@ -138,6 +138,7 @@ async def plan_trip_package(
         include_ground_transport: Include bus/train options
     """
     from .activities import search_activities
+    from .restaurants import search_restaurants_bars
     from .advisory import get_travel_advisory
     from .destination import geocode, get_destination_info
     from .flights import search_flights
@@ -212,6 +213,10 @@ async def plan_trip_package(
         search_activities(lat, lon, radius_km=15, max_results=8)
         if lat and lon else asyncio.sleep(0, result={})
     )
+    restaurants_task = (
+        search_restaurants_bars(lat, lon, category="all", radius_m=1500, max_results=8, city=dest_city)
+        if lat and lon else asyncio.sleep(0, result={})
+    )
     _intercontinental = _is_intercontinental(origin_iata, dest_city.lower())
     ground_task = (
         search_ground_transport(
@@ -234,13 +239,13 @@ async def plan_trip_package(
     results = await asyncio.gather(
         *flight_tasks,
         hotel_task, weather_task, advisory_task, visa_task,
-        activities_task, ground_task, country_task,
+        activities_task, restaurants_task, ground_task, country_task,
         return_exceptions=True,
     )
 
     n_airports = len(origin_airports[:3])
     flight_results = results[:n_airports]
-    hotels, weather, advisory, visa, activities, ground, country_info = results[n_airports:]
+    hotels, weather, advisory, visa, activities, restaurants, ground, country_info = results[n_airports:]
 
     # Process flights — pick cheapest across all origin airports
     all_flight_options: list[dict] = []
@@ -298,6 +303,23 @@ async def plan_trip_package(
     act_d = activities if isinstance(activities, dict) else {}
     top_attractions = [
         a["name"] for a in (act_d.get("activities") or [])[:6] if a.get("name")
+    ]
+
+    # Process restaurants
+    rest_d = restaurants if isinstance(restaurants, dict) else {}
+    top_restaurants = [
+        {
+            "name": r["name"],
+            "type": r.get("type"),
+            "cuisine": r.get("cuisine"),
+            "price_level": r.get("price_level"),
+            "rating": r.get("rating"),
+            "distance_m": r.get("distance_m"),
+            "opening_hours": r.get("opening_hours"),
+            "booking_links": r.get("booking_links", {}),
+        }
+        for r in (rest_d.get("places") or [])[:6]
+        if r.get("name")
     ]
 
     # Process ground transport
@@ -415,6 +437,13 @@ async def plan_trip_package(
 
         "top_attractions": top_attractions,
         "attractions_data_confidence": act_d.get("data_confidence", "wikidata_fallback"),
+
+        "restaurants_bars": {
+            "places": top_restaurants,
+            "highlights": rest_d.get("highlights", {}),
+            "data_confidence": rest_d.get("data_confidence", "osm_live"),
+            "tip": "Set FOURSQUARE_API_KEY for real ratings. All links open live reviews.",
+        },
 
         "destination_info": {
             "local_currency": currencies[0].get("code", "") if currencies else "",

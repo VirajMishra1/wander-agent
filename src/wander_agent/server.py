@@ -51,6 +51,7 @@ from .tools.meetup import multi_origin_meetup
 from .tools.aurora import find_aurora_destinations
 from .tools.mistake_fares import find_mistake_fares
 from .tools.visa import check_visa_requirement, visa_free_destinations
+from .tools.restaurants import search_restaurants_bars
 
 # Traveler profile (persistent memory)
 from .tools.profile import (
@@ -901,6 +902,38 @@ async def tool_plan_trip_package(
         budget_level, interests, include_ground_transport,
     )
 
+
+
+@mcp.tool()
+async def tool_search_restaurants_bars(
+    latitude: float,
+    longitude: float,
+    category: str = "all",
+    radius_m: int = 1000,
+    max_results: int = 15,
+    cuisine: str | None = None,
+    city: str | None = None,
+) -> dict:
+    """Find restaurants, bars, pubs, cafes near a location with ratings and booking links.
+
+    Returns real venues with cuisine, price level, opening hours, distance,
+    and direct links to Google Maps, Zomato, TripAdvisor, Yelp, OpenTable,
+    Resy (restaurants), Untappd (bars/pubs), and Foursquare.
+
+    Ratings available if FOURSQUARE_API_KEY env var is set (free tier).
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+        category: restaurant | bar | pub | cafe | nightlife | all
+        radius_m: Walk radius in metres (default 1000 = ~12min walk)
+        max_results: Max venues (1-30)
+        cuisine: Filter by cuisine e.g. "italian", "japanese", "thai", "indian"
+        city: City name for better search links e.g. "Tokyo", "Paris"
+    """
+    return await search_restaurants_bars(
+        latitude, longitude, category, radius_m, max_results, cuisine, city,
+    )
 
 def main():
     import os
