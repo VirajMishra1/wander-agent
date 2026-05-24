@@ -53,6 +53,15 @@ from .tools.mistake_fares import find_mistake_fares
 from .tools.visa import check_visa_requirement, visa_free_destinations
 from .tools.restaurants import search_restaurants_bars
 
+# New utility tools
+from .tools.packing import generate_packing_list
+from .tools.places import find_places
+from .tools.jetlag import calculate_jet_lag
+from .tools.phrasebook import get_language_phrasebook
+from .tools.stopover import get_stopover_guide
+from .tools.travel_news import get_travel_news
+from .tools.health import check_travel_health
+
 # Traveler profile (persistent memory)
 from .tools.profile import (
     get_traveler_profile,
@@ -934,6 +943,160 @@ async def tool_search_restaurants_bars(
     return await search_restaurants_bars(
         latitude, longitude, category, radius_m, max_results, cuisine, city,
     )
+
+
+
+# ============================================================
+# NEW UTILITY TOOLS
+# ============================================================
+
+@mcp.tool()
+async def tool_generate_packing_list(
+    destination: str,
+    start_date: str,
+    end_date: str,
+    activities: str | None = None,
+    budget_level: str = "moderate",
+    travelers: int = 1,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> dict:
+    """Generate a smart packing list tailored to destination, weather, and activities.
+
+    Fetches live weather to adapt clothing and gear suggestions.
+
+    Args:
+        destination: City or country name
+        start_date: YYYY-MM-DD
+        end_date: YYYY-MM-DD
+        activities: Comma-separated (e.g., "beach,hiking,business,nightlife")
+        budget_level: budget, moderate, luxury
+        travelers: Number of travelers
+        latitude: Optional — auto-fetched if omitted
+        longitude: Optional — auto-fetched if omitted
+    """
+    return await generate_packing_list(
+        destination, start_date, end_date, activities,
+        budget_level, travelers, latitude, longitude,
+    )
+
+
+@mcp.tool()
+async def tool_find_places(
+    latitude: float,
+    longitude: float,
+    category: str,
+    radius_km: int = 20,
+    max_results: int = 15,
+    city: str | None = None,
+) -> dict:
+    """Find viewpoints, beaches, hiking trails, coworking spaces, and more.
+
+    Uses OpenStreetMap — no API key required.
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+        category: viewpoint | beach | hiking | coworking | waterfall | camping | market | hot_spring | museum | park
+        radius_km: Search radius in km (1-100)
+        max_results: Max places to return
+        city: City name for richer search links (e.g., "Bali", "Cape Town")
+    """
+    return await find_places(latitude, longitude, category, radius_km, max_results, city)
+
+
+@mcp.tool()
+async def tool_calculate_jet_lag(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    flight_duration_hours: float = 0.0,
+) -> dict:
+    """Calculate jet lag severity and give a science-based recovery schedule.
+
+    Covers pre-departure schedule shift, on-plane tips, melatonin timing,
+    and post-arrival light exposure strategy.
+
+    Args:
+        origin: City or IATA code (e.g., "New York", "JFK")
+        destination: City or IATA code (e.g., "Tokyo", "NRT")
+        departure_date: YYYY-MM-DD
+        flight_duration_hours: Flight time in hours (0 = auto-estimated)
+    """
+    return await calculate_jet_lag(origin, destination, departure_date, flight_duration_hours)
+
+
+@mcp.tool()
+async def tool_get_language_phrasebook(
+    destination: str,
+    language_code: str | None = None,
+    category: str | None = None,
+) -> dict:
+    """Get a phrasebook for the local language at a destination.
+
+    Covers 17 languages with pronunciation guides and essential phrases.
+
+    Args:
+        destination: City or country name (e.g., "Tokyo", "France", "Bangkok")
+        language_code: Override language (ja, fr, es, it, de, pt, th, zh, ar, ko, hi, vi, id, tr, ms, sw)
+        category: greeting | essential | food | transport | shopping | emergency | accommodation | numbers
+    """
+    return await get_language_phrasebook(destination, language_code, category)
+
+
+@mcp.tool()
+async def tool_get_stopover_guide(
+    airport: str,
+    layover_hours: float,
+    passport_country: str | None = None,
+) -> dict:
+    """What to do during a layover at a major hub airport.
+
+    Covers in-terminal activities, city excursions, and transit visa info
+    for IST, DXB, SIN, DOH, NRT, HND, CDG, HKG, ICN, AMS.
+
+    Args:
+        airport: IATA code (e.g., "DXB", "SIN", "IST")
+        layover_hours: Total layover duration in hours
+        passport_country: ISO-2 code for transit visa check (e.g., "IN", "US")
+    """
+    return await get_stopover_guide(airport, layover_hours, passport_country)
+
+
+@mcp.tool()
+async def tool_get_travel_news(
+    destination: str,
+    days_lookback: int = 7,
+    max_results: int = 10,
+) -> dict:
+    """Get recent travel news and disruption alerts for a destination.
+
+    Scans Google News RSS for strikes, airport closures, entry bans, protests.
+    No API key required.
+
+    Args:
+        destination: City or country name (e.g., "Paris", "Thailand")
+        days_lookback: Only news from last N days (1-30)
+        max_results: Max articles to return
+    """
+    return await get_travel_news(destination, days_lookback, max_results)
+
+
+@mcp.tool()
+async def tool_check_travel_health(
+    destination_iso2: str,
+    trip_duration_days: int = 14,
+) -> dict:
+    """Health requirements, vaccine recommendations, and safety tips for a destination.
+
+    Covers required vaccines, CDC/WHO recommendations, water safety, mosquito risk,
+    altitude sickness, food safety, and a pre-departure preparation timeline.
+
+    Args:
+        destination_iso2: ISO 2-letter country code OR IATA airport code (e.g., "TH", "JP", "BKK", "DPS")
+        trip_duration_days: Trip length (affects malaria prophylaxis advice etc.)
+    """
+    return await check_travel_health(destination_iso2, trip_duration_days)
 
 def main():
     import os
