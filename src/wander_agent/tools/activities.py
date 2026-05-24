@@ -10,6 +10,17 @@ _ADMIN_DESC_KEYWORDS = frozenset({
     "prefecture", "ward", "neighbourhood", "neighborhood", "suburb",
     "administrative", "populated place", "human settlement",
     "urban district", "rural district", "local government",
+    # Transport infrastructure
+    "railway station", "train station", "metro station", "subway station",
+    "bus station", "bus stop", "tram stop", "airport", "ferry terminal",
+    "interchange station", "underground station",
+    # Educational / civic
+    "university", "college", "school", "high school", "primary school",
+    "elementary school", "kindergarten",
+    # Natural features (too generic)
+    "river in", "stream in", "canal in", "lake in",
+    # Other non-tourist
+    "post office", "fire station", "police station", "hospital in",
 })
 
 CATEGORIES = {

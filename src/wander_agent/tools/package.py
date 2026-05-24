@@ -263,6 +263,21 @@ async def plan_trip_package(
     best_flight = all_flight_options[0] if all_flight_options else None
     flight_cost_pp: float | None = best_flight.get("price") if best_flight else None
 
+    # Extract Kiwi live fares — may be cheaper than scraped Google Flights prices
+    all_kiwi_fares: list[dict] = []
+    for r in flight_results:
+        if isinstance(r, dict):
+            all_kiwi_fares.extend(r.get("kiwi_live_fares", []))
+    kiwi_cheapest_pp: float | None = None
+    if all_kiwi_fares:
+        try:
+            kiwi_cheapest_pp = min(float(f["price"]) for f in all_kiwi_fares if f.get("price"))
+        except (TypeError, ValueError):
+            pass
+    # Use Kiwi price for cost estimate if it's cheaper (Kiwi = live bookable)
+    if kiwi_cheapest_pp and (flight_cost_pp is None or kiwi_cheapest_pp < flight_cost_pp):
+        flight_cost_pp = kiwi_cheapest_pp
+
     # Process hotels
     hotels_d = hotels if isinstance(hotels, dict) else {}
     cheapest_ppn = hotels_d.get("cheapest_price_per_night")
@@ -319,6 +334,8 @@ async def plan_trip_package(
 
         "flights": {
             "best": best_flight,
+            "kiwi_cheapest_per_person": kiwi_cheapest_pp,
+            "kiwi_live_fares": all_kiwi_fares[:5],
             "all_options": all_flight_options[:5],
             "price_is_per_person": True,
             "booking_links": {
@@ -420,7 +437,12 @@ async def plan_trip_package(
             "data_confidence": "estimated",
         },
 
-        "booking_checklist": _build_checklist(visa_d, adv_level, flight_d, hotel_d),
+        "booking_checklist": _build_checklist(
+            visa_d,
+            adv_level,
+            next((r for r in flight_results if isinstance(r, dict) and r.get("booking_links")), best_flight or {}),
+            hotels_d,
+        ),
 
         "suggest_web_search": [
             f"best neighborhoods to stay in {dest_city}",
