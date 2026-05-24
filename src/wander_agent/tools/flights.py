@@ -161,50 +161,79 @@ async def _search_fast_flights(
 
 
 
-def _expedia_flight_url(origin: str, dest: str, date: str, adults: int) -> str:
+def _expedia_flight_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None) -> str:
     from datetime import datetime as _dt
     from urllib.parse import quote as _q
-    exp_date = _dt.strptime(date, "%Y-%m-%d").strftime("%m/%d/%Y")
-    leg = f"from:{origin},to:{dest},departure:{exp_date}TANYT"
+    fmt = "%m/%d/%Y"
+    dep = _dt.strptime(date, "%Y-%m-%d").strftime(fmt)
+    leg1 = f"from:{origin},to:{dest},departure:{dep}TANYT"
+    if return_date:
+        ret = _dt.strptime(return_date, "%Y-%m-%d").strftime(fmt)
+        leg2 = f"from:{dest},to:{origin},departure:{ret}TANYT"
+        return (
+            f"https://www.expedia.com/Flights-Search"
+            f"?trip=roundtrip&leg1={_q(leg1)}&leg2={_q(leg2)}"
+            f"&passengers=adults:{adults}&mode=search&options=cabinclass:economy"
+        )
     return (
         f"https://www.expedia.com/Flights-Search"
-        f"?trip=oneway&leg1={_q(leg)}"
+        f"?trip=oneway&leg1={_q(leg1)}"
         f"&passengers=adults:{adults}&mode=search&options=cabinclass:economy"
     )
 
 
-def _lastminute_flight_url(origin: str, dest: str, date: str, adults: int) -> str:
+def _lastminute_flight_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None) -> str:
+    if return_date:
+        return f"https://www.lastminute.com/flights/{origin}-{dest}/{date}/return/{return_date}/?adults={adults}"
     return f"https://www.lastminute.com/flights/{origin}-{dest}/{date}/?adults={adults}"
 
 
-def _turkish_airlines_url(origin: str, dest: str, date: str, adults: int) -> str:
+def _turkish_airlines_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None) -> str:
     from datetime import datetime as _dt
-    ta_date = _dt.strptime(date, "%Y-%m-%d").strftime("%d.%m.%Y")
+    fmt = "%d.%m.%Y"
+    dep = _dt.strptime(date, "%Y-%m-%d").strftime(fmt)
+    if return_date:
+        ret = _dt.strptime(return_date, "%Y-%m-%d").strftime(fmt)
+        return (
+            f"https://www.turkishairlines.com/en-int/flights/"
+            f"?from={origin}&to={dest}&D_Date={dep}&R_Date={ret}"
+            f"&adult={adults}&child=0&infant=0&port=2"
+        )
     return (
         f"https://www.turkishairlines.com/en-int/flights/"
-        f"?from={origin}&to={dest}&D_Date={ta_date}"
+        f"?from={origin}&to={dest}&D_Date={dep}"
         f"&adult={adults}&child=0&infant=0&port=1"
     )
 
 
+def _kayak_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None) -> str:
+    if return_date:
+        return f"https://www.kayak.com/flights/{origin}-{dest}/{date}/{return_date}/{adults}adults"
+    return f"https://www.kayak.com/flights/{origin}-{dest}/{date}/{adults}adults"
 
-def _skyscanner_url(origin: str, dest: str, date: str, adults: int) -> str:
+
+def _skyscanner_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None) -> str:
     from datetime import datetime as _dt
-    sky_date = _dt.strptime(date, "%Y-%m-%d").strftime("%y%m%d")
+    fmt = "%y%m%d"
+    dep = _dt.strptime(date, "%Y-%m-%d").strftime(fmt)
+    if return_date:
+        ret = _dt.strptime(return_date, "%Y-%m-%d").strftime(fmt)
+        return (
+            f"https://www.skyscanner.com/transport/flights/{origin}/{dest}/{dep}/{ret}/"
+            f"?adults={adults}&cabinclass=economy"
+        )
     return (
-        f"https://www.skyscanner.com/transport/flights/{origin}/{dest}/{sky_date}/"
+        f"https://www.skyscanner.com/transport/flights/{origin}/{dest}/{dep}/"
         f"?adults={adults}&cabinclass=economy"
     )
 
 
-
-def _google_flights_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None) -> str:
-    # Google Flights hash format pre-fills origin, destination, date, pax
+def _google_flights_url(origin: str, dest: str, date: str, adults: int, return_date: str | None = None, currency: str = "USD") -> str:
     trip = "f" if not return_date else "r"
     base = f"https://www.google.com/travel/flights#flt={origin}.{dest}.{date}"
     if return_date:
         base += f"*{dest}.{origin}.{return_date}"
-    base += f";c:USD;e:1;sd:1;t:{trip};q:{adults}"
+    base += f";c:{currency.upper()};e:1;sd:1;t:{trip};q:{adults}"
     return base
 
 
@@ -271,11 +300,12 @@ async def search_flights(
             "flights": [],
             "kiwi_live_fares": [],
             "booking_links": {
-                "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
-                "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
-                "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
-                "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
-                "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date),
+                "kayak": _kayak_url(origin, destination, departure_date, adults, return_date),
+                "skyscanner": _skyscanner_url(origin, destination, departure_date, adults, return_date),
+                "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date, currency),
+                "expedia": _expedia_flight_url(origin, destination, departure_date, adults, return_date),
+                "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults, return_date),
+                "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults, return_date),
             },
             "error": (
                 "Both Google Flights scraper and Kiwi.com are unavailable. "
@@ -303,11 +333,12 @@ async def search_flights(
             "data_source": "kiwi.com",
             "note": "Google Flights unavailable. Showing Kiwi.com live fares only.",
             "booking_links": {
-                "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
-                "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
-                "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
-                "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
-                "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date),
+                "kayak": _kayak_url(origin, destination, departure_date, adults, return_date),
+                "skyscanner": _skyscanner_url(origin, destination, departure_date, adults, return_date),
+                "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date, currency),
+                "expedia": _expedia_flight_url(origin, destination, departure_date, adults, return_date),
+                "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults, return_date),
+                "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults, return_date),
             },
             "suggest_web_search": [
                 f"{origin} to {destination} mistake fares {departure_date[:7]}",
@@ -346,11 +377,12 @@ async def search_flights(
         "price_signal": (gf or {}).get("price_signal", "typical"),
         "data_source": "google_flights + kiwi.com",
         "booking_links": {
-            "expedia": _expedia_flight_url(origin, destination, departure_date, adults),
-            "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults),
-            "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults),
-            "skyscanner": _skyscanner_url(origin, destination, departure_date, adults),
-            "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date),
+            "kayak": _kayak_url(origin, destination, departure_date, adults, return_date),
+            "skyscanner": _skyscanner_url(origin, destination, departure_date, adults, return_date),
+            "google_flights": _google_flights_url(origin, destination, departure_date, adults, return_date, currency),
+            "expedia": _expedia_flight_url(origin, destination, departure_date, adults, return_date),
+            "lastminute": _lastminute_flight_url(origin, destination, departure_date, adults, return_date),
+            "turkish_airlines": _turkish_airlines_url(origin, destination, departure_date, adults, return_date),
         },
         "suggest_web_search": [
             f"{origin} to {destination} mistake fares {departure_date[:7]}",
