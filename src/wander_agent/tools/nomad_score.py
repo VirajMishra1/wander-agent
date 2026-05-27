@@ -191,9 +191,11 @@ async def score_nomad_cities(
 
         # Run cost + advisory in parallel
         cost_fut = asyncio.create_task(get_cost_of_living(city))
+        async def _empty_adv() -> dict:
+            return {}
+
         adv_fut = asyncio.create_task(
-            get_travel_advisory(iso2) if iso2
-            else asyncio.coroutine(lambda: {})()
+            get_travel_advisory(iso2) if iso2 else _empty_adv()
         )
         cost_data, adv_data = await asyncio.gather(cost_fut, adv_fut, return_exceptions=True)
 

@@ -149,7 +149,8 @@ async def get_weather(
         if not forecasts:
             return {"error": "Could not retrieve climatology data"}
 
-        avg_high = sum(f["temp_high_c"] for f in forecasts if f["temp_high_c"]) / max(len([f for f in forecasts if f["temp_high_c"]]), 1)
+        valid_highs = [f["temp_high_c"] for f in forecasts if f["temp_high_c"] is not None]
+        avg_high = sum(valid_highs) / len(valid_highs) if valid_highs else 0
         rainy_days = sum(1 for f in forecasts if f.get("is_typically_rainy", False))
 
         return {

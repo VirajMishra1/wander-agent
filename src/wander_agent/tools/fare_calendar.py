@@ -102,7 +102,6 @@ async def fare_calendar(
                     adults=adults,
                     max_results=1,
                     currency=currency,
-                    cabin_class=cabin_class,
                 )
                 price = result.get("cheapest_price")
                 if not price:

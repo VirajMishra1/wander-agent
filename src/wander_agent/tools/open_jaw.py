@@ -169,12 +169,12 @@ async def find_open_jaw(
     f_in_t = asyncio.create_task(search_flights(
         origin=origin_iata, destination=in_iata,
         departure_date=outbound_date, adults=adults,
-        max_results=3, currency=currency, cabin_class=cabin_class,
+        max_results=3, currency=currency,
     ))
     f_out_t = asyncio.create_task(search_flights(
         origin=out_iata, destination=origin_iata,
         departure_date=return_date, adults=adults,
-        max_results=3, currency=currency, cabin_class=cabin_class,
+        max_results=3, currency=currency,
     ))
     ground_t = asyncio.create_task(search_ground_transport(
         origin_city=in_city, destination_city=out_city,
@@ -183,7 +183,7 @@ async def find_open_jaw(
     baseline_t = asyncio.create_task(search_flights(
         origin=origin_iata, destination=in_iata,
         departure_date=outbound_date, return_date=return_date,
-        adults=adults, max_results=1, currency=currency, cabin_class=cabin_class,
+        adults=adults, max_results=1, currency=currency,
     ))
 
     f_in, f_out, ground, baseline = await asyncio.gather(

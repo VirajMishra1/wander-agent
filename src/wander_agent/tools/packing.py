@@ -204,7 +204,7 @@ async def generate_packing_list(
         {"item": "Luggage tags", "essential": True},
         {"item": "Packing cubes", "essential": False, "note": "Game changer for staying organised"},
         {"item": "Reusable water bottle (1L)", "essential": True},
-        {"item": "Neck pillow (for long flights)", "essential": nights > 5 or True},
+        {"item": "Neck pillow (for long flights)", "essential": nights > 5},
         {"item": "Sleep mask + earplugs", "essential": True},
     ]
     if "hiking" in acts:

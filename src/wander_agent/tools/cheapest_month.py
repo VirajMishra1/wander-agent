@@ -109,7 +109,7 @@ async def find_cheapest_month(
                     departure_date=dep.isoformat(),
                     return_date=ret,
                     adults=adults, max_results=1,
-                    currency=currency, cabin_class=cabin_class,
+                    currency=currency,
                 )
                 price = result.get("cheapest_price")
                 if not price:
