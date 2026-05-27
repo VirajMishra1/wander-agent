@@ -2,7 +2,7 @@
 
 # 🌍 Wander Agent
 
-**A travel planning AI with 41 tools, zero API keys required.**
+**A travel planning AI with 44 tools, zero API keys required.**
 
 Ask your AI anything about travel — flights, hotels, visas, weather, safety, local food, packing lists — and get real data back, not hallucinations.
 
@@ -332,7 +332,7 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 
 ---
 
-## All 41 Tools
+## All 44 Tools
 
 ### ✈️ Flights
 
@@ -398,6 +398,14 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 | Tool | What it does |
 |------|-------------|
 | `search_restaurants_bars` | Real venues near a location from OpenStreetMap. Returns cuisine, price level, opening hours, distance, and links to Google Maps, Zomato, TripAdvisor, Yelp, OpenTable, Resy, and Untappd. |
+
+### 🌐 Smart Trip Tools
+
+| Tool | What it does |
+|------|-------------|
+| `score_nomad_cities` | Ranks cities for remote work across 6 dimensions: cost, safety, internet speed, weather, visa ease, and lifestyle. Configurable weights. "Score Bali vs Lisbon vs Tbilisi for a 3-month stay." |
+| `check_transit_visa` | Do you need a transit visa at your layover airport? Covers 200+ passport × layover country combinations for LHR, JFK, DXB, SIN, FRA, IST, DOH, NRT, ICN, YYZ, SYD, and 30+ others. Catches the trip-ruiner before you book. |
+| `calculate_flight_carbon` | CO2e footprint for any flight using ICAO/DEFRA 2024 factors with radiative forcing (RFI ×1.9). Per-passenger and total emissions, Gold Standard offset cost, and train/car comparison for short routes. |
 
 ### 🎒 On the Ground
 
