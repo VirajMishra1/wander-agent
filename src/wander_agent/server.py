@@ -78,6 +78,12 @@ from .tools.package import plan_trip_package
 from .tools.nomad_score import score_nomad_cities
 from .tools.transit_visa import check_transit_visa
 from .tools.flight_carbon import calculate_flight_carbon
+from .tools.fare_calendar import fare_calendar
+from .tools.split_ticket import find_split_ticket
+from .tools.passport_power import get_passport_power
+from .tools.open_jaw import find_open_jaw
+from .tools.cheapest_month import find_cheapest_month
+from .tools.local_sim import get_local_sim_guide
 
 
 @dataclass
@@ -1168,6 +1174,174 @@ async def tool_calculate_flight_carbon(
         trip_type: one_way | round_trip
     """
     return await calculate_flight_carbon(origin, destination, passengers, cabin_class, trip_type)
+
+
+@mcp.tool()
+async def tool_fare_calendar(
+    origin: str,
+    destination: str,
+    year: int | None = None,
+    month: int | None = None,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+    trip_length_days: int | None = None,
+) -> dict:
+    """Show a full month price grid — find the cheapest day to fly.
+
+    Samples up to 15 departure dates per month and returns prices, day-of-week
+    analysis, price tiers (budget/mid/expensive), and best/worst weeks. Useful
+    for flexible travelers who can shift by a few days to save money.
+
+    Args:
+        origin: Origin airport IATA code (e.g., "JFK")
+        destination: Destination airport IATA code (e.g., "LHR")
+        year: Year (default: next occurrence of month)
+        month: Month 1-12 (default: next month)
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code (e.g., "USD", "EUR", "GBP")
+        trip_length_days: If set, price as round-trip (return = departure + N days)
+    """
+    return await fare_calendar(origin, destination, year, month, adults, cabin_class, currency, trip_length_days)
+
+
+@mcp.tool()
+async def tool_find_split_ticket(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+    min_connection_hours: float = 3.0,
+) -> dict:
+    """Find savings by booking two separate tickets through a hub airport.
+
+    OTAs are contractually forbidden from recommending this. Savings of
+    20-60% are common on long-haul routes with strong hub competition.
+    Works by pricing origin→hub and hub→destination independently.
+
+    ⚠️ Carries missed-connection risk — read ALL risks in the result before booking.
+
+    Args:
+        origin: Origin airport IATA code (e.g., "SFO")
+        destination: Destination airport IATA code (e.g., "DEL")
+        departure_date: YYYY-MM-DD departure date
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code
+        min_connection_hours: Minimum buffer hours between tickets at hub
+    """
+    return await find_split_ticket(origin, destination, departure_date, adults, cabin_class, currency, min_connection_hours)
+
+
+@mcp.tool()
+async def tool_get_passport_power(
+    passport_country: str,
+    compare_with: str | None = None,
+) -> dict:
+    """Rank passport strength and optionally compare two passports head-to-head.
+
+    Shows visa-free access count, frictionless travel percentage, regional
+    breakdown, and Henley Index 2024 rank. When compare_with is provided,
+    shows exactly which destinations each passport unlocks that the other doesn't.
+    Critical for dual-passport holders and immigration decision-making.
+
+    No API key required — uses built-in visa dataset.
+
+    Args:
+        passport_country: Your passport ISO2 code (e.g., "US", "IN", "NG", "CN")
+        compare_with: Optional second passport ISO2 for comparison (e.g., "GB")
+    """
+    return await get_passport_power(passport_country, compare_with)
+
+
+@mcp.tool()
+async def tool_find_open_jaw(
+    origin: str,
+    fly_into: str,
+    fly_out_from: str,
+    outbound_date: str,
+    return_date: str,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+) -> dict:
+    """Plan an open-jaw trip: fly into one city, travel overland, fly out from another.
+
+    Example: JFK → Rome, train Rome → Paris, Paris → JFK.
+    Composes flight search + ground transport tools. Shows total cost vs a simple
+    round-trip, so you can see how much extra it costs to visit two cities.
+
+    Accepts both IATA codes (FCO, CDG) and city names (Rome, Paris).
+
+    Args:
+        origin: Home airport IATA or city (e.g., "JFK" or "New York")
+        fly_into: First destination IATA or city (e.g., "FCO" or "Rome")
+        fly_out_from: Final departure IATA or city (e.g., "CDG" or "Paris")
+        outbound_date: YYYY-MM-DD — fly origin → fly_into
+        return_date: YYYY-MM-DD — fly fly_out_from → origin
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code
+    """
+    return await find_open_jaw(origin, fly_into, fly_out_from, outbound_date, return_date, adults, cabin_class, currency)
+
+
+@mcp.tool()
+async def tool_find_cheapest_month(
+    origin: str,
+    destination: str,
+    months_ahead: int = 12,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+    trip_length_days: int = 7,
+    trip_type: str = "round_trip",
+) -> dict:
+    """Find the cheapest month to fly a route over the next N months.
+
+    Samples the first Tuesday of each month (statistically cheapest booking day).
+    Returns all months ranked by price with season analysis. Flexible travelers
+    can save hundreds by shifting their trip by just one or two months.
+
+    Complements fare_calendar (day-level within one month — this is month-level
+    across a full year).
+
+    Args:
+        origin: Origin airport IATA code (e.g., "JFK")
+        destination: Destination airport IATA code (e.g., "BCN")
+        months_ahead: Future months to scan (1-12, default 12)
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code
+        trip_length_days: Days for round-trip return leg (departure + N)
+        trip_type: round_trip | one_way
+    """
+    return await find_cheapest_month(origin, destination, months_ahead, adults, cabin_class, currency, trip_length_days, trip_type)
+
+
+@mcp.tool()
+async def tool_get_local_sim_guide(
+    country: str,
+    trip_duration_days: int = 7,
+    data_heavy: bool = False,
+) -> dict:
+    """Get local SIM card and eSIM recommendations for a destination country.
+
+    Returns operator names, approximate cost, data allowance, where to buy,
+    activation steps, tethering policy, and duration-based advice.
+    Covers 25+ countries. Falls back to Airalo/Holafly for unlisted countries.
+
+    eSIM recommended if your phone supports it — activate before boarding.
+
+    Args:
+        country: Country name (e.g., "Thailand"), ISO2 code (e.g., "TH"), or city (e.g., "Bangkok")
+        trip_duration_days: Trip length in days — affects local SIM vs eSIM recommendation
+        data_heavy: True if you stream video, work remotely, or need constant hotspot
+    """
+    return await get_local_sim_guide(country, trip_duration_days, data_heavy)
 
 
 def main():
