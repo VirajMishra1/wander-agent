@@ -74,6 +74,11 @@ from .tools.profile import (
 from .tools.ground_transport import search_ground_transport
 from .tools.package import plan_trip_package
 
+# New high-impact tools
+from .tools.nomad_score import score_nomad_cities
+from .tools.transit_visa import check_transit_visa
+from .tools.flight_carbon import calculate_flight_carbon
+
 
 @dataclass
 class AppContext:
@@ -1097,6 +1102,73 @@ async def tool_check_travel_health(
         trip_duration_days: Trip length (affects malaria prophylaxis advice etc.)
     """
     return await check_travel_health(destination_iso2, trip_duration_days)
+
+@mcp.tool()
+async def tool_score_nomad_cities(
+    cities: str,
+    month: int | None = None,
+    weights: str = "cost:25,safety:20,internet:15,weather:20,visa:10,lifestyle:10",
+) -> dict:
+    """Score and rank cities for digital nomad / remote-work suitability.
+
+    Combines cost of living, safety advisory, internet speed index, weather
+    comfort, visa ease, and lifestyle/coworking data into a single ranked score.
+    No API key required.
+
+    Args:
+        cities: Comma-separated city names (e.g., "Bali,Lisbon,Chiang Mai,Medellin")
+        month: Month 1-12 to evaluate weather (default: current month)
+        weights: Scoring weights as "dimension:percent" pairs summing to 100.
+                 Dimensions: cost, safety, internet, weather, visa, lifestyle
+    """
+    return await score_nomad_cities(cities, month, weights)
+
+
+@mcp.tool()
+async def tool_check_transit_visa(
+    passport_country: str,
+    layover_airport: str,
+    connecting_to: str | None = None,
+) -> dict:
+    """Check if you need a transit visa for a layover airport.
+
+    Covers the most common passport + layover combinations for 40+ major hubs:
+    LHR, JFK, LAX, FRA, AMS, CDG, DXB, SIN, IST, DOH, NRT, ICN, HKG, YYZ,
+    SYD, and more. This is a common trip-ruiner — carriers deny boarding if
+    you lack the required transit document. Check BEFORE booking.
+
+    Args:
+        passport_country: Your passport ISO2 code (e.g., "IN", "US", "NG")
+        layover_airport: IATA code of layover airport (e.g., "LHR", "DXB", "JFK")
+        connecting_to: Optional final destination airport IATA (for context)
+    """
+    return await check_transit_visa(passport_country, layover_airport, connecting_to)
+
+
+@mcp.tool()
+async def tool_calculate_flight_carbon(
+    origin: str,
+    destination: str,
+    passengers: int = 1,
+    cabin_class: str = "economy",
+    trip_type: str = "round_trip",
+) -> dict:
+    """Calculate CO2e carbon footprint for a flight.
+
+    Uses ICAO/DEFRA 2024 emission factors including radiative forcing (RFI ×1.9).
+    Shows per-passenger and total emissions, carbon offset cost at Gold Standard
+    prices ($18/tonne), and train/car comparison for short-to-medium routes.
+    No API key required.
+
+    Args:
+        origin: Origin airport IATA code (e.g., "JFK")
+        destination: Destination airport IATA code (e.g., "LHR")
+        passengers: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        trip_type: one_way | round_trip
+    """
+    return await calculate_flight_carbon(origin, destination, passengers, cabin_class, trip_type)
+
 
 def main():
     import os
