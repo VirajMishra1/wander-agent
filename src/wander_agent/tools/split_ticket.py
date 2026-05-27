@@ -103,7 +103,7 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def _candidate_hubs(
-    origin: str, destination: str, max_hubs: int = 8, max_detour: float = 1.6
+    origin: str, destination: str, max_hubs: int = 10, max_detour: float = 1.6
 ) -> list[tuple[str, float]]:
     o = _AIRPORT_COORDS.get(origin)
     d = _AIRPORT_COORDS.get(destination)
@@ -114,11 +114,20 @@ def _candidate_hubs(
     for iata, (_, _, hlat, hlon) in HUBS.items():
         if iata in (origin, destination):
             continue
-        detour = (_haversine_km(*o, hlat, hlon) + _haversine_km(hlat, hlon, *d)) / max(direct_km, 1)
-        if detour <= max_detour:
-            candidates.append((iata, round(detour, 2)))
-    candidates.sort(key=lambda x: x[1])
-    return candidates[:max_hubs]
+        leg1 = _haversine_km(*o, hlat, hlon)
+        leg2 = _haversine_km(hlat, hlon, *d)
+        detour = (leg1 + leg2) / max(direct_km, 1)
+        if detour > max_detour:
+            continue
+        # Exclude hubs trivially close to one endpoint — those produce one micro-leg
+        # and one near-full-price leg, leaving no room for split-ticket savings.
+        # 12% floor: both legs must be at least 12% of the total split distance.
+        total_split = leg1 + leg2
+        if leg1 / total_split < 0.12 or leg2 / total_split < 0.12:
+            continue
+        candidates.append((round(detour, 2), iata))
+    candidates.sort()
+    return [(iata, detour) for detour, iata in candidates[:max_hubs]]
 
 
 async def find_split_ticket(
