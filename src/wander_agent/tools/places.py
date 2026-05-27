@@ -25,12 +25,21 @@ _CATEGORY_QUERIES: dict[str, list[tuple[str, str]]] = {
 }
 
 
-def _build_overpass(tags_list: list[tuple[str,str]], radius_m: int, lat: float, lon: float, limit: int) -> str:
+# These categories rarely have names in OSM — don't require ["name"] filter
+_NO_NAME_FILTER = {"viewpoint", "beach", "waterfall", "hot_spring", "camping"}
+
+
+def _build_overpass(
+    tags_list: list[tuple[str, str]], radius_m: int, lat: float, lon: float,
+    limit: int, require_name: bool = True,
+) -> str:
+    name_f = '["name"]' if require_name else ""
     parts = []
     for k, v in tags_list:
-        parts.append(f'  node["{k}"="{v}"]["name"](around:{radius_m},{lat},{lon});')
-        parts.append(f'  way["{k}"="{v}"]["name"](around:{radius_m},{lat},{lon});')
-    return f"[out:json][timeout:20];\n(\n" + "\n".join(parts) + f"\n);\nout body center {limit};\n"
+        parts.append(f'  node["{k}"="{v}"]{name_f}(around:{radius_m},{lat},{lon});')
+        parts.append(f'  way["{k}"="{v}"]{name_f}(around:{radius_m},{lat},{lon});')
+        parts.append(f'  relation["{k}"="{v}"]{name_f}(around:{radius_m},{lat},{lon});')
+    return "[out:json][timeout:20];\n(\n" + "\n".join(parts) + f"\n);\nout body center {limit};\n"
 
 
 async def find_places(
@@ -71,7 +80,8 @@ async def find_places(
     cat = category.lower()
     tags = _CATEGORY_QUERIES.get(cat, _CATEGORY_QUERIES["viewpoint"])
     city_hint = city or f"{latitude:.4f},{longitude:.4f}"
-    query = _build_overpass(tags, radius_m, latitude, longitude, max_results * 5)
+    query = _build_overpass(tags, radius_m, latitude, longitude, max_results * 5,
+                             require_name=cat not in _NO_NAME_FILTER)
 
     places = []
     try:
@@ -86,7 +96,13 @@ async def find_places(
                 t = el.get("tags", {})
                 name = t.get("name", "").strip()
                 if not name:
-                    continue
+                    if cat in _NO_NAME_FILTER:
+                        # Use natural:name, nat_name, or fall back to type label
+                        name = (t.get("nat_name") or t.get("natural") or
+                                t.get("tourism") or t.get("waterway") or
+                                t.get("leisure") or cat).strip().title()
+                    else:
+                        continue
                 lat_p = el.get("lat") if el.get("type") == "node" else el.get("center", {}).get("lat")
                 lon_p = el.get("lon") if el.get("type") == "node" else el.get("center", {}).get("lon")
                 if not lat_p or not lon_p:

@@ -44,8 +44,11 @@ async def score_destinations(
     weight_map: dict = {"cost": 3, "weather": 3, "safety": 2, "events": 1, "quality_of_life": 1}
     for pair in weights.split(","):
         if ":" in pair:
-            k, v = pair.split(":")
-            weight_map[k.strip()] = float(v.strip())
+            try:
+                k, v = pair.split(":", 1)
+                weight_map[k.strip()] = float(v.strip())
+            except (ValueError, TypeError):
+                pass
 
     async def _score_one(dest: str) -> dict:
         geo = await geocode(dest)

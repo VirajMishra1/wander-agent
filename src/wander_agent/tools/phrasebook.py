@@ -367,7 +367,7 @@ async def get_language_phrasebook(
             },
         },
         "learning_tip": f"Even saying hello in {data['language']} opens doors. Locals appreciate the effort.",
-        "offline_app": "Google Translate works offline — download {data['language']} language pack before your trip.".format(data=data),
+        "offline_app": f"Google Translate works offline — download {data['language']} language pack before your trip.",
         "suggest_web_search": [
             f"common phrases {destination} for tourists",
             f"{data['language']} pronunciation guide for English speakers",

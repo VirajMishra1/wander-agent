@@ -168,7 +168,7 @@ async def get_weather(
             "note": "Live forecast only available within 16 days. This is historical average for the requested dates.",
         }
     except Exception as e:
-        return {"error": f"Weather lookup failed: {e}"}
+        return {"error": "Weather service unavailable. Try again later."}
 
 
 def _format_forecast(data: dict, lat: float, lon: float, start: str, end: str, ftype: str) -> dict:

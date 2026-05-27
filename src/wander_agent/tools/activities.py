@@ -39,7 +39,7 @@ CATEGORIES = {
     "shopping": "Q1311958",
     "nightlife": "Q1627595",
     "architecture": "Q811979",
-    "historic": "Q210272",
+    "historic": "Q16970",   # place of worship — broader than Q210272 (historic district)
     "museums": "Q33506",
     "religion": "Q24398318",
     "art": "Q3305213",
@@ -101,6 +101,20 @@ async def search_activities(
         )
         if resp.status_code == 200:
             bindings = resp.json().get("results", {}).get("bindings", [])
+            # If category filter returned nothing, retry without it
+            if not bindings and kind_filter:
+                sparql_broad = sparql.replace(kind_filter, "")
+                resp2 = await client.get(
+                    "https://query.wikidata.org/sparql",
+                    params={"query": sparql_broad, "format": "json"},
+                    headers={
+                        "Accept": "application/sparql-results+json",
+                        "User-Agent": "WanderAgent/0.2.0 (open-source travel mcp)",
+                    },
+                    timeout=15.0,
+                )
+                if resp2.status_code == 200:
+                    bindings = resp2.json().get("results", {}).get("bindings", [])
             results = []
             for b in bindings:
                 name = b.get("itemLabel", {}).get("value", "")

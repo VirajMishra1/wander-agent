@@ -1,6 +1,7 @@
 """Travel news — live Google News RSS for disruptions, strikes, entry changes."""
 from __future__ import annotations
 import asyncio
+import html
 import re
 from datetime import datetime, timedelta
 
@@ -85,7 +86,7 @@ async def get_travel_news(
 
                 title = re.sub(r"<[^>]+>", "", title_m.group(1) if title_m else "").strip()
                 link = (link_m.group(1) if link_m else "").strip()
-                summary = re.sub(r"<[^>]+>", "", desc_m.group(1) if desc_m else "").strip()[:300]
+                summary = html.unescape(re.sub(r"<[^>]+>", "", desc_m.group(1) if desc_m else "")).strip()[:300]
                 pub_date = pub_m.group(1).strip() if pub_m else None
                 source = re.sub(r"<[^>]+>", "", src_m.group(1) if src_m else "").strip()
 

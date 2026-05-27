@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
+import asyncio
 import time
 from html import unescape
 
 # In-process cache (60 min TTL)
 _cache: dict = {"data": None, "fetched_at": 0}
+_cache_lock = asyncio.Lock()
 _CACHE_TTL = 3600
 
 
@@ -153,7 +155,7 @@ async def get_travel_advisory(country: str) -> dict:
             ],
         }
     except Exception as e:
-        return {"error": str(e), "country": country}
+        return {"error": "Advisory service unavailable. Try again later.", "country": country}
 
 
 async def list_advisories_by_level(min_level: int = 3) -> dict:
@@ -188,4 +190,4 @@ async def list_advisories_by_level(min_level: int = 3) -> dict:
             "source": "US State Department",
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": "Service unavailable. Try again later."}

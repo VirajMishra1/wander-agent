@@ -32,7 +32,7 @@ _DEEPLINKS = {
     "ourbus": "https://www.ourbus.com/booknow?origin={origin_city}&destination={dest_city}&date={date}&passengers={travelers}",
     "blablacar_bus": "https://www.blablacar.com/bus/search?departure_city={origin_city}&arrival_city={dest_city}&departure_date={date}&passengers={travelers}",
     "busbud": "https://www.busbud.com/en/bus-schedules/{origin_city}/{dest_city}/{date}?adult={travelers}",
-    "trainline": "https://www.thetrainline.com/book/results?origin={origin_city}&destination={dest_city}&outwardDate={date}&passengers[]=26{extra_adults}",
+    "trainline": "https://www.thetrainline.com/book/results?origin={origin_city}&destination={dest_city}&outwardDate={date}&passengers[]=26",
     "irctc": "https://www.irctc.co.in/nget/train-search?fromStation={origin_code}&toStation={dest_code}&journeyDate={date}&journeyQuota=GN&adult={travelers}",
     "12go": "https://12go.asia/en/travel/{origin_city}/{dest_city}?from_date={date}&passengers={travelers}",
     "rome2rio": "https://www.rome2rio.com/s/{origin_slug}/{dest_slug}",
@@ -148,8 +148,6 @@ async def search_ground_transport(
         template = _DEEPLINKS.get(service)
         if not template:
             continue
-        # Trainline encodes each extra adult as an additional passengers[]=26 param
-        extra_adults = "".join("&passengers[]=26" for _ in range(travelers - 1))
         link = _fill_link(
             template,
             origin_city=origin,
@@ -160,8 +158,10 @@ async def search_ground_transport(
             origin_code=amtrak_origin if service == "amtrak" else irctc_origin,
             dest_code=amtrak_dest if service == "amtrak" else irctc_dest,
             travelers=str(travelers),
-            extra_adults=extra_adults,
         )
+        # Trainline: append extra adult params raw (not URL-encoded)
+        if service == "trainline" and travelers > 1:
+            link += "".join("&passengers%5B%5D=26" for _ in range(travelers - 1))
         booking_links.append({
             "service": service.replace("_", " ").title(),
             "url": link,

@@ -60,7 +60,7 @@ async def find_aurora_destinations(
     aurora_season = sample_date.month in [9, 10, 11, 12, 1, 2, 3, 4]
 
     # Fetch NOAA 3-day KP forecast (no auth)
-    kp_forecast_summary: list = []
+    kp_forecast_summary: dict = {}
     try:
         client = await get_client()
         kp_resp = await client.get(
