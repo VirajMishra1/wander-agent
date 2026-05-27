@@ -169,7 +169,7 @@ async def find_split_ticket(
             origin=origin, destination=destination,
             departure_date=departure_date,
             adults=adults, max_results=1,
-            currency=currency, cabin_class=cabin_class,
+            currency=currency,
         )
     )
 
@@ -184,13 +184,13 @@ async def find_split_ticket(
                         origin=origin, destination=hub_iata,
                         departure_date=departure_date,
                         adults=adults, max_results=1,
-                        currency=currency, cabin_class=cabin_class,
+                        currency=currency,
                     ),
                     search_flights(
                         origin=hub_iata, destination=destination,
                         departure_date=departure_date,
                         adults=adults, max_results=1,
-                        currency=currency, cabin_class=cabin_class,
+                        currency=currency,
                     ),
                 )
                 p1, p2 = r1.get("cheapest_price"), r2.get("cheapest_price")
