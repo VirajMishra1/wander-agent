@@ -109,6 +109,73 @@ _CITY_TO_ISO2: dict[str, str] = {
 }
 
 
+# Monthly avg temp °C per city: [Jan..Dec]
+_MONTHLY_TEMP: dict[str, list[float]] = {
+    "bali":           [27, 27, 27, 28, 27, 26, 25, 26, 26, 27, 27, 27],
+    "chiang mai":     [22, 25, 28, 31, 31, 30, 29, 29, 28, 27, 24, 21],
+    "bangkok":        [27, 29, 30, 32, 31, 30, 29, 29, 29, 29, 27, 26],
+    "ho chi minh city":[27, 28, 30, 32, 32, 30, 29, 29, 29, 28, 27, 26],
+    "hanoi":          [17, 18, 21, 25, 28, 30, 30, 29, 27, 24, 20, 17],
+    "kuala lumpur":   [27, 28, 28, 28, 28, 28, 27, 27, 27, 27, 27, 27],
+    "singapore":      [26, 27, 27, 28, 28, 28, 27, 27, 27, 27, 27, 26],
+    "tokyo":          [ 6,  6, 10, 15, 19, 23, 27, 28, 24, 18, 13,  8],
+    "osaka":          [ 6,  7, 11, 16, 21, 25, 29, 30, 26, 20, 14,  8],
+    "seoul":          [-2,  0,  6, 13, 18, 23, 27, 28, 23, 16,  8,  1],
+    "taipei":         [16, 17, 19, 23, 26, 29, 32, 32, 29, 25, 22, 18],
+    "hong kong":      [16, 17, 19, 23, 26, 29, 30, 30, 28, 25, 21, 17],
+    "lisbon":         [13, 14, 15, 17, 19, 23, 26, 27, 25, 21, 16, 13],
+    "porto":          [12, 13, 14, 15, 17, 20, 23, 24, 22, 18, 14, 12],
+    "barcelona":      [10, 11, 13, 15, 18, 22, 25, 26, 23, 19, 14, 11],
+    "madrid":         [ 7,  8, 11, 14, 18, 23, 27, 27, 23, 17, 11,  7],
+    "berlin":         [ 1,  2,  6, 11, 16, 19, 21, 21, 17, 12,  6,  2],
+    "amsterdam":      [ 4,  4,  7, 10, 14, 17, 19, 19, 16, 12,  8,  5],
+    "paris":          [ 6,  7,  9, 12, 16, 19, 22, 22, 18, 14,  9,  6],
+    "london":         [ 7,  7,  9, 11, 14, 17, 20, 20, 17, 13,  9,  7],
+    "prague":         [ 1,  2,  6, 11, 16, 19, 21, 21, 17, 11,  6,  2],
+    "budapest":       [ 2,  4,  9, 14, 19, 23, 25, 25, 21, 15,  8,  3],
+    "warsaw":         [-1,  0,  4, 10, 15, 19, 21, 20, 16, 10,  5,  0],
+    "tbilisi":        [ 4,  5, 10, 15, 20, 24, 27, 27, 23, 17, 10,  5],
+    "dubai":          [19, 21, 24, 28, 33, 35, 37, 37, 34, 30, 25, 21],
+    "abu dhabi":      [18, 20, 24, 28, 33, 36, 38, 38, 35, 31, 26, 21],
+    "tel aviv":       [13, 14, 16, 19, 23, 26, 28, 29, 27, 24, 19, 14],
+    "medellin":       [22, 22, 23, 23, 22, 22, 22, 22, 22, 22, 22, 22],
+    "bogota":         [14, 14, 14, 14, 14, 13, 13, 13, 13, 14, 14, 14],
+    "mexico city":    [16, 18, 20, 22, 23, 22, 21, 21, 20, 19, 17, 16],
+    "buenos aires":   [25, 24, 22, 18, 14, 11, 11, 12, 15, 18, 22, 24],
+    "cape town":      [22, 22, 21, 18, 16, 14, 13, 14, 15, 17, 19, 21],
+    "nairobi":        [19, 20, 20, 19, 18, 17, 16, 17, 17, 19, 18, 18],
+    "new york":       [ 1,  2,  6, 12, 18, 23, 26, 26, 22, 16,  9,  3],
+    "san francisco":  [11, 12, 13, 14, 15, 16, 16, 17, 18, 17, 14, 11],
+    "austin":         [12, 14, 17, 21, 25, 29, 32, 32, 28, 22, 16, 12],
+    "miami":          [20, 21, 23, 25, 27, 29, 30, 31, 30, 28, 24, 21],
+    "toronto":        [-3, -2,  3,  9, 15, 21, 24, 23, 19, 13,  6, -1],
+    "sydney":         [23, 23, 22, 19, 16, 13, 12, 13, 15, 18, 21, 23],
+    "zurich":         [ 2,  3,  7, 11, 16, 19, 22, 21, 17, 12,  6,  2],
+    "stockholm":      [-2, -2,  1,  6, 12, 17, 20, 18, 14,  8,  3, -1],
+    "copenhagen":     [ 2,  2,  5,  9, 14, 17, 20, 20, 16, 11,  7,  3],
+    "helsinki":       [-4, -5, -1,  5, 11, 16, 19, 18, 13,  7,  2, -2],
+    "manila":         [26, 27, 28, 30, 31, 30, 28, 28, 28, 28, 28, 27],
+    "jakarta":        [27, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 27],
+    "yerevan":        [ 1,  3,  9, 15, 20, 25, 28, 28, 23, 16,  9,  3],
+    "tashkent":       [ 3,  5, 11, 17, 22, 28, 31, 30, 25, 18, 11,  5],
+}
+
+
+def _weather_score(city_lower: str, month: int) -> float:
+    """Score 0-10 based on typical temp for the month. Defaults to 6.0 if unknown."""
+    temps = _MONTHLY_TEMP.get(city_lower)
+    if not temps:
+        return 6.0
+    avg_temp = temps[month - 1]
+    if 20 <= avg_temp <= 28:
+        return 9.5
+    if 15 <= avg_temp < 20 or 28 < avg_temp <= 32:
+        return 7.5
+    if 10 <= avg_temp < 15 or 32 < avg_temp <= 36:
+        return 5.0
+    return 2.5
+
+
 def _internet_score(city_lower: str) -> float:
     return _INTERNET.get(city_lower, 7.5)
 
@@ -201,30 +268,14 @@ async def score_nomad_cities(
 
         daily_mid: float | None = None
         if isinstance(cost_data, dict) and not cost_data.get("error"):
-            daily_mid = cost_data.get("mid_range_usd_day")
+            daily_mid = cost_data.get("daily_budget_per_person", {}).get("mid_tier_usd")
 
         adv_level: int | None = None
         if isinstance(adv_data, dict):
-            adv_level = adv_data.get("level")
+            adv_level = adv_data.get("advisory_level")
 
-        # Weather score from cost_of_living climate data if present
-        weather_sc = 6.0
-        if isinstance(cost_data, dict):
-            climate = cost_data.get("climate") or {}
-            month_data = climate.get(str(now_month)) or {}
-            avg_temp = month_data.get("avg_temp_c")
-            avg_precip = month_data.get("avg_precip_mm", 0) or 0
-            if avg_temp is not None:
-                if 20 <= avg_temp <= 28:
-                    t_sc = 10.0
-                elif 15 <= avg_temp < 20 or 28 < avg_temp <= 32:
-                    t_sc = 7.5
-                elif 10 <= avg_temp < 15 or 32 < avg_temp <= 36:
-                    t_sc = 5.0
-                else:
-                    t_sc = 2.5
-                p_sc = max(0.0, 10.0 - avg_precip / 5)
-                weather_sc = round(t_sc * 0.6 + p_sc * 0.4, 1)
+        # Weather score from static monthly temp table
+        weather_sc = _weather_score(cl, now_month)
 
         dim_scores = {
             "cost":      _cost_score(daily_mid),
