@@ -2,7 +2,7 @@
 
 # 🌍 Wander Agent
 
-**A travel planning AI with 50 tools, zero API keys required.**
+**A travel planning AI with 60 tools, zero API keys required.**
 
 Ask your AI anything about travel — flights, hotels, visas, weather, safety, local food, packing lists — and get real data back, not hallucinations.
 
@@ -123,11 +123,13 @@ Without this plugin, asking an AI "cheapest flights from New York to Tokyo in Au
 </details>
 
 <details>
-<summary><strong>🧠 Memory</strong></summary>
+<summary><strong>🧠 Memory & Decisions</strong></summary>
 
-- Saves your home airports, passports, currency, and interests
-- Never ask again — the AI uses your profile automatically
+- Saves your home airports, passports, currency, and interests — never ask again
 - Logs your trip history
+- **Saved trips** — a persistent trip with an 8-item booking checklist that survives across sessions
+- **Fare watching** — set a target price on a route, re-price on demand, get a buy signal when it drops
+- **Value ranking** — scores options 0–100 on price *plus* stops, duration, refundability, baggage and hassle (flags hidden-city / split-ticket risk), so cheapest isn't blindly "best"
 
 </details>
 
@@ -340,7 +342,7 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 
 ---
 
-## All 50 Tools
+## All 60 Tools
 
 ### ✈️ Flights
 
@@ -452,6 +454,35 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 | `onboard_traveler` | One-time setup. Saves your preferences so the AI uses them automatically in every future session. |
 | `update_traveler_profile` | Update any field or log a completed trip. |
 | `get_trip_history` | Your logged trip history. |
+
+### 🧳 Saved Trips (cross-session memory)
+
+Persisted to `~/.wander_agent/trips.json`. A trip carries an 8-item booking checklist (flights, hotel, visa, insurance, ground transport, advisory, packing, notify bank).
+
+| Tool | What it does |
+|------|-------------|
+| `save_trip` | Save a trip you're planning. Returns a `trip_id` and a fresh booking checklist. |
+| `list_my_trips` | List saved trips with checklist progress. Filter by status (planning/booked/completed/cancelled). |
+| `get_trip_status` | Full state + checklist progress for one trip, by id or destination. |
+| `update_trip` | Change status/dates, tick checklist items, or shortlist a flight/hotel option onto the trip. |
+| `delete_trip` | Remove a saved trip. |
+
+### 🔔 Fare Watching
+
+Persisted to `~/.wander_agent/fare_watches.json`. Records a baseline price and a price history per watched route.
+
+| Tool | What it does |
+|------|-------------|
+| `watch_fare` | Start watching a route with an optional target price. Captures a baseline on creation. |
+| `list_fare_watches` | List watches with baseline / last / lowest price seen and status. |
+| `check_fare_watches` | Re-price watched routes now. Returns buy-signal alerts: `target_hit`, `price_drop`, `price_rise`, `no_change`. |
+| `stop_fare_watch` | Pause or delete a watch. |
+
+### ⚖️ Value Ranking
+
+| Tool | What it does |
+|------|-------------|
+| `rank_trip_options` | Scores a list of flight/trip options 0–100 on price plus stops, duration, refundability, baggage and hassle. Presets: cheapest / fastest / easiest / flexible / balanced. Flags hidden-city, split-ticket and self-transfer risk so the cheapest fare isn't blindly the winner. |
 
 ---
 

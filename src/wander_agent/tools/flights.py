@@ -358,7 +358,10 @@ async def search_flights(
     else:
         cheapest = 0
 
-    return {
+    from ..utils.freshness import stamp
+
+    _conf = "scraped_live"
+    return stamp({
         "origin": origin,
         "destination": destination,
         "departure_date": departure_date,
@@ -373,7 +376,6 @@ async def search_flights(
         "cheapest_price_total": round(cheapest * adults, 2),
         "price_is_per_person": True,
         "currency": currency.upper(),
-        "data_confidence": "live" if kiwi_fares else "scraped_live",
         "price_signal": (gf or {}).get("price_signal", "typical"),
         "data_source": "google_flights + kiwi.com",
         "booking_links": {
@@ -389,4 +391,4 @@ async def search_flights(
             f"{origin} to {destination} cheap flight tips reddit",
             f"airline strikes affecting {origin} {destination} {departure_date[:7]}",
         ],
-    }
+    }, _conf, source="google_flights + kiwi.com")
