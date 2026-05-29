@@ -41,6 +41,23 @@ EXPECTED_TOOLS = [
     "tool_get_trip_history",
     "tool_search_ground_transport",
     "tool_plan_trip_package",
+    "tool_calculate_flight_carbon",
+    "tool_calculate_jet_lag",
+    "tool_check_transit_visa",
+    "tool_check_travel_health",
+    "tool_fare_calendar",
+    "tool_find_cheapest_month",
+    "tool_find_open_jaw",
+    "tool_find_places",
+    "tool_find_split_ticket",
+    "tool_generate_packing_list",
+    "tool_get_language_phrasebook",
+    "tool_get_local_sim_guide",
+    "tool_get_passport_power",
+    "tool_get_stopover_guide",
+    "tool_get_travel_news",
+    "tool_score_nomad_cities",
+    "tool_search_restaurants_bars",
 ]
 
 
@@ -51,7 +68,9 @@ def test_server_file_exists():
 def test_tool_count():
     content = SERVER_FILE.read_text()
     count = len(re.findall(r"@mcp\.tool\(\)", content))
-    assert count == 33, f"Expected 33 @mcp.tool() decorators, found {count}"
+    assert count == len(EXPECTED_TOOLS), (
+        f"Expected {len(EXPECTED_TOOLS)} @mcp.tool() decorators, found {count}"
+    )
 
 
 def test_all_expected_tools_present():
