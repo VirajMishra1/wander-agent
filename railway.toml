@@ -1,0 +1,10 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "python -m wander_agent.server"
+restartPolicyType = "on_failure"
+
+[deploy.envs]
+WANDER_TRANSPORT = "streamable-http"
+PORT = "8000"

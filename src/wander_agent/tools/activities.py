@@ -3,6 +3,35 @@
 from __future__ import annotations
 
 
+# Descriptions that indicate administrative divisions, not tourist attractions
+# Name patterns that indicate non-tourist items (matched against name, not description)
+_BAD_NAME_KEYWORDS = frozenset({
+    "post office", "bus company", "bus depot", "city bus", "taxi",
+    "hospital", "clinic", "pharmacy", "police station", "fire station",
+    "elementary school", "junior high", "high school", "primary school",
+    "art college", "university hospital", "katsura hospital",
+    "city hall", "ward office", "government office",
+})
+
+_ADMIN_DESC_KEYWORDS = frozenset({
+    "municipality", "civil parish", "parish", "commune", "borough",
+    "county", "district", "arrondissement", "township", "province",
+    "prefecture", "ward", "neighbourhood", "neighborhood", "suburb",
+    "administrative", "populated place", "human settlement",
+    "urban district", "rural district", "local government",
+    # Transport infrastructure
+    "railway station", "train station", "metro station", "subway station",
+    "bus station", "bus stop", "tram stop", "airport", "ferry terminal",
+    "interchange station", "underground station",
+    # Educational / civic
+    "university", "college", "school", "high school", "primary school",
+    "elementary school", "kindergarten",
+    # Natural features (too generic)
+    "river in", "stream in", "canal in", "lake in",
+    # Other non-tourist
+    "post office", "fire station", "police station", "hospital in",
+})
+
 CATEGORIES = {
     "culture": "Q570116",
     "nature": "Q1286517",
@@ -10,7 +39,7 @@ CATEGORIES = {
     "shopping": "Q1311958",
     "nightlife": "Q1627595",
     "architecture": "Q811979",
-    "historic": "Q210272",
+    "historic": "Q16970",   # place of worship — broader than Q210272 (historic district)
     "museums": "Q33506",
     "religion": "Q24398318",
     "art": "Q3305213",
@@ -58,7 +87,7 @@ async def search_activities(
       {kind_filter}
       OPTIONAL {{ ?item schema:description ?desc . FILTER(LANG(?desc) = "en") }}
       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
-    }} LIMIT {min(max_results * 2, 40)}
+    }} LIMIT {min(max_results * 4, 80)}
     """
     try:
         resp = await client.get(
@@ -72,10 +101,41 @@ async def search_activities(
         )
         if resp.status_code == 200:
             bindings = resp.json().get("results", {}).get("bindings", [])
+            # If category filter returned nothing, retry without it
+            if not bindings and kind_filter:
+                sparql_broad = sparql.replace(kind_filter, "")
+                resp2 = await client.get(
+                    "https://query.wikidata.org/sparql",
+                    params={"query": sparql_broad, "format": "json"},
+                    headers={
+                        "Accept": "application/sparql-results+json",
+                        "User-Agent": "WanderAgent/0.2.0 (open-source travel mcp)",
+                    },
+                    timeout=15.0,
+                )
+                if resp2.status_code == 200:
+                    bindings = resp2.json().get("results", {}).get("bindings", [])
             results = []
             for b in bindings:
                 name = b.get("itemLabel", {}).get("value", "")
                 if not name or name.startswith("Q"):
+                    continue
+                desc = b.get("desc", {}).get("value", "")
+                # Skip administrative divisions (municipalities, parishes, etc.)
+                desc_lower = desc.lower()
+                if any(kw in desc_lower for kw in _ADMIN_DESC_KEYWORDS):
+                    continue
+                # Skip non-tourist items by name patterns
+                name_lower = name.lower()
+                if any(kw in name_lower for kw in _BAD_NAME_KEYWORDS):
+                    continue
+                # Skip items with generic transport/infrastructure names
+                if (name_lower.endswith(" bus") or name_lower.endswith(" buses")
+                        or " post office" in name_lower
+                        or " hospital" in name_lower
+                        or " school" in name_lower and "art school" not in name_lower
+                        or "healthcare" in desc_lower
+                        or desc_lower.startswith("healthcare")):
                     continue
                 coord_str = b.get("coord", {}).get("value", "")
                 lat_r = lon_r = None
@@ -89,7 +149,7 @@ async def search_activities(
                     "distance_m": None,
                     "latitude": lat_r,
                     "longitude": lon_r,
-                    "description": b.get("desc", {}).get("value", "")[:300],
+                    "description": desc[:300],
                     "website": "",
                     "image": "",
                     "rating": None,

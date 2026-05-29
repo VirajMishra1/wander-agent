@@ -17,27 +17,79 @@ from datetime import datetime
 from urllib.parse import quote_plus
 
 
-def _booking_url(city: str, check_in: str, check_out: str, adults: int) -> str:
+def _booking_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
     return (
         f"https://www.booking.com/searchresults.html"
         f"?ss={quote_plus(city)}"
-        f"&checkin={check_in}&checkout={check_out}&group_adults={adults}"
+        f"&checkin={check_in}&checkout={check_out}"
+        f"&group_adults={adults}&no_rooms={rooms}"
     )
 
 
-def _google_hotels_url(city: str, check_in: str, check_out: str, adults: int) -> str:
+def _google_hotels_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
     return (
         f"https://www.google.com/travel/hotels/{quote_plus(city)}"
-        f"?q={quote_plus(city)}&checkin={check_in}&checkout={check_out}&adults={adults}"
+        f"?q={quote_plus(city)}&checkin={check_in}&checkout={check_out}"
+        f"&adults={adults}&rooms={rooms}"
     )
 
 
-def _airbnb_url(city: str, check_in: str, check_out: str, adults: int) -> str:
+def _airbnb_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
     return (
         f"https://www.airbnb.com/s/{quote_plus(city)}/homes"
-        f"?checkin={check_in}&checkout={check_out}&adults={adults}"
+        f"?checkin={check_in}&checkout={check_out}&adults={adults}&min_bedrooms={rooms}"
     )
 
+
+def _tripadvisor_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
+    return (
+        f"https://www.tripadvisor.com/Hotels"
+        f"?q={quote_plus(city)}"
+        f"&checkin_year_month_day={check_in.replace('-', ',')}"
+        f"&checkout_year_month_day={check_out.replace('-', ',')}"
+        f"&adults={adults}&numRooms={rooms}"
+    )
+
+
+def _trivago_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
+    return (
+        f"https://www.trivago.com/en-US/srl"
+        f"?search=MC%3A{quote_plus(city)}"
+        f"&checkin={check_in}&checkout={check_out}&adults={adults}&rooms={rooms}"
+    )
+
+
+def _expedia_hotel_url(city: str, check_in: str, check_out: str, adults: int, rooms: int) -> str:
+    return (
+        f"https://www.expedia.com/Hotel-Search"
+        f"?destination={quote_plus(city)}"
+        f"&startDate={check_in}&endDate={check_out}"
+        f"&adults={adults}&rooms={rooms}"
+    )
+
+
+def _lastminute_hotel_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
+    return (
+        f"https://www.lastminute.com/site/hotel/search"
+        f"?destination={quote_plus(city)}"
+        f"&fromDate={check_in}&toDate={check_out}&guestCount={adults}&rooms={rooms}"
+    )
+
+
+def _wyndham_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
+    return (
+        f"https://www.wyndhamhotels.com/search-results"
+        f"?checkInDate={check_in}&checkOutDate={check_out}"
+        f"&destination={quote_plus(city)}&adults={adults}&rooms={rooms}"
+    )
+
+
+def _directbooker_url(city: str, check_in: str, check_out: str, adults: int, rooms: int = 1) -> str:
+    return (
+        f"https://www.directbooker.com/search"
+        f"?location={quote_plus(city)}"
+        f"&checkin={check_in}&checkout={check_out}&adults={adults}&rooms={rooms}"
+    )
 
 async def _get_fast_hotels_names(city: str, check_in: str, check_out: str, adults: int) -> list[dict]:
     """Get real hotel names from Google Hotels via fast_hotels."""
@@ -136,9 +188,15 @@ async def search_hotels(
         "currency": currency.upper(),
         "data_source": source,
         "booking_links": {
-            "booking_com": _booking_url(city, check_in, check_out, adults),
-            "google_hotels": _google_hotels_url(city, check_in, check_out, adults),
-            "airbnb": _airbnb_url(city, check_in, check_out, adults),
+            "booking_com": _booking_url(city, check_in, check_out, adults, rooms),
+            "google_hotels": _google_hotels_url(city, check_in, check_out, adults, rooms),
+            "expedia": _expedia_hotel_url(city, check_in, check_out, adults, rooms),
+            "airbnb": _airbnb_url(city, check_in, check_out, adults, rooms),
+            "tripadvisor": _tripadvisor_url(city, check_in, check_out, adults, rooms),
+            "trivago": _trivago_url(city, check_in, check_out, adults, rooms),
+            "lastminute": _lastminute_hotel_url(city, check_in, check_out, adults, rooms),
+            "wyndham": _wyndham_url(city, check_in, check_out, adults, rooms),
+            "directbooker": _directbooker_url(city, check_in, check_out, adults, rooms),
         },
         "suggest_web_search": [
             f"best hotels {city} under ${'200' if not price_range else price_range.split('-')[-1]} {check_in[:7]}",

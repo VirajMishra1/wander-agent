@@ -25,27 +25,27 @@ from datetime import datetime
 
 # Deeplink templates
 _DEEPLINKS = {
-    "flixbus": "https://shop.flixbus.com/search?departureCity={origin_city}&arrivalCity={dest_city}&rideDate={date}&adult=1",
-    "amtrak": "https://www.amtrak.com/buy/station/{origin_code}/{dest_code}.html?departDate={date}&numberOfAdults=1",
-    "greyhound": "https://www.greyhound.com/en/results?origin={origin_city}&destination={dest_city}&outboundDate={date}&pax=1",
-    "megabus": "https://us.megabus.com/journey-planner/journeys?originId={origin_city}&destinationId={dest_city}&outboundDepartureDate={date}&totalPassengers=1",
-    "ourbus": "https://www.ourbus.com/booknow?origin={origin_city}&destination={dest_city}&date={date}",
-    "blablacar_bus": "https://www.blablacar.com/bus/search?departure_city={origin_city}&arrival_city={dest_city}&departure_date={date}&passengers=1",
-    "busbud": "https://www.busbud.com/en/bus-schedules/{origin_city}/{dest_city}/{date}",
+    "flixbus": "https://shop.flixbus.com/search?departureCity={origin_city}&arrivalCity={dest_city}&rideDate={date}&adult={travelers}",
+    "amtrak": "https://www.amtrak.com/buy/station/{origin_code}/{dest_code}.html?departDate={date}&numberOfAdults={travelers}",
+    "greyhound": "https://www.greyhound.com/en/results?origin={origin_city}&destination={dest_city}&outboundDate={date}&pax={travelers}",
+    "megabus": "https://us.megabus.com/journey-planner/journeys?originId={origin_city}&destinationId={dest_city}&outboundDepartureDate={date}&totalPassengers={travelers}",
+    "ourbus": "https://www.ourbus.com/booknow?origin={origin_city}&destination={dest_city}&date={date}&passengers={travelers}",
+    "blablacar_bus": "https://www.blablacar.com/bus/search?departure_city={origin_city}&arrival_city={dest_city}&departure_date={date}&passengers={travelers}",
+    "busbud": "https://www.busbud.com/en/bus-schedules/{origin_city}/{dest_city}/{date}?adult={travelers}",
     "trainline": "https://www.thetrainline.com/book/results?origin={origin_city}&destination={dest_city}&outwardDate={date}&passengers[]=26",
-    "irctc": "https://www.irctc.co.in/nget/train-search?fromStation={origin_code}&toStation={dest_code}&journeyDate={date}&journeyQuota=GN",
-    "12go": "https://12go.asia/en/travel/{origin_city}/{dest_city}?from_date={date}",
+    "irctc": "https://www.irctc.co.in/nget/train-search?fromStation={origin_code}&toStation={dest_code}&journeyDate={date}&journeyQuota=GN&adult={travelers}",
+    "12go": "https://12go.asia/en/travel/{origin_city}/{dest_city}?from_date={date}&passengers={travelers}",
     "rome2rio": "https://www.rome2rio.com/s/{origin_slug}/{dest_slug}",
     "google_maps_transit": "https://www.google.com/maps/dir/?api=1&origin={origin_city}&destination={dest_city}&travelmode=transit",
 }
 
 # Which services to show per region
 _REGIONAL_SERVICES = {
-    "us": ["amtrak", "greyhound", "megabus", "ourbus", "flixbus", "busbud", "rome2rio"],
-    "europe": ["flixbus", "blablacar_bus", "trainline", "busbud", "rome2rio"],
-    "india": ["irctc", "busbud", "rome2rio"],
-    "sea": ["12go", "busbud", "rome2rio"],
-    "global": ["busbud", "rome2rio"],
+    "us": ["amtrak", "greyhound", "megabus", "ourbus", "flixbus", "busbud"],
+    "europe": ["flixbus", "blablacar_bus", "trainline", "busbud"],
+    "india": ["irctc", "busbud"],
+    "sea": ["12go", "busbud"],
+    "global": ["busbud"],
 }
 
 # City -> Amtrak station code
@@ -157,7 +157,11 @@ async def search_ground_transport(
             dest_slug=_slugify(dest),
             origin_code=amtrak_origin if service == "amtrak" else irctc_origin,
             dest_code=amtrak_dest if service == "amtrak" else irctc_dest,
+            travelers=str(travelers),
         )
+        # Trainline: append extra adult params raw (not URL-encoded)
+        if service == "trainline" and travelers > 1:
+            link += "".join("&passengers%5B%5D=26" for _ in range(travelers - 1))
         booking_links.append({
             "service": service.replace("_", " ").title(),
             "url": link,

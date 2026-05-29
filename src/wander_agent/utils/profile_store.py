@@ -7,7 +7,9 @@ Schema versioned so future fields can be added without breaking existing profile
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import os
+import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +47,7 @@ _DEFAULT_PROFILE: dict[str, Any] = {
 
 
 def _now_iso() -> str:
-    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def load_profile() -> dict[str, Any]:
@@ -72,8 +74,10 @@ def save_profile(profile: dict[str, Any]) -> None:
     _PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     profile["updated_at"] = _now_iso()
     profile.setdefault("created_at", _now_iso())
-    with _PROFILE_PATH.open("w", encoding="utf-8") as f:
+    tmp = _PROFILE_PATH.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
         json.dump(profile, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, _PROFILE_PATH)
 
 
 def update_profile_fields(**kwargs: Any) -> dict[str, Any]:

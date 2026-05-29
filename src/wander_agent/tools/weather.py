@@ -103,13 +103,16 @@ async def get_weather(
             for d, mx, mn, p in zip(dates, tmax, tmin, psum):
                 md = d[5:]  # MM-DD
                 if md not in forecasts_by_md:
-                    forecasts_by_md[md] = {"tmax": [], "tmin": [], "precip": []}
+                    forecasts_by_md[md] = {"tmax": [], "tmin": [], "precip": [], "rainy_years": 0, "sample_years": 0}
                 if mx is not None:
                     forecasts_by_md[md]["tmax"].append(mx)
                 if mn is not None:
                     forecasts_by_md[md]["tmin"].append(mn)
                 if p is not None:
                     forecasts_by_md[md]["precip"].append(p)
+                    forecasts_by_md[md]["sample_years"] += 1
+                    if p > 1.0:  # >1mm = rainy day
+                        forecasts_by_md[md]["rainy_years"] += 1
 
         # Build daily climatology array
         forecasts = []
@@ -124,6 +127,10 @@ async def get_weather(
             avg_tmax = sum(tmax_vals) / len(tmax_vals) if tmax_vals else None
             avg_tmin = sum(tmin_vals) / len(tmin_vals) if tmin_vals else None
             avg_precip = sum(precip_vals) / len(precip_vals) if precip_vals else None
+            # "Rainy" = rain occurred in majority of historical years on this date
+            rainy_years = stats.get("rainy_years", 0)
+            sample_years = stats.get("sample_years", 0)
+            is_typically_rainy = sample_years > 0 and (rainy_years / sample_years) > 0.5
 
             forecasts.append({
                 "date": day.isoformat(),
@@ -132,16 +139,19 @@ async def get_weather(
                 "temp_high_f": round(avg_tmax * 9/5 + 32, 1) if avg_tmax is not None else None,
                 "temp_low_f": round(avg_tmin * 9/5 + 32, 1) if avg_tmin is not None else None,
                 "precipitation_mm": round(avg_precip, 1) if avg_precip is not None else None,
+                "rain_probability_pct": round(rainy_years / sample_years * 100) if sample_years else None,
                 "wind_speed_kmh": None,
                 "condition": "Typical for this date (climatology)",
+                "is_typically_rainy": is_typically_rainy,
             })
             day += timedelta(days=1)
 
         if not forecasts:
             return {"error": "Could not retrieve climatology data"}
 
-        avg_high = sum(f["temp_high_c"] for f in forecasts if f["temp_high_c"]) / max(len([f for f in forecasts if f["temp_high_c"]]), 1)
-        rainy_days = sum(1 for f in forecasts if (f["precipitation_mm"] or 0) > 1)
+        valid_highs = [f["temp_high_c"] for f in forecasts if f["temp_high_c"] is not None]
+        avg_high = sum(valid_highs) / len(valid_highs) if valid_highs else 0
+        rainy_days = sum(1 for f in forecasts if f.get("is_typically_rainy", False))
 
         return {
             "location": {"latitude": latitude, "longitude": longitude},
@@ -159,7 +169,7 @@ async def get_weather(
             "note": "Live forecast only available within 16 days. This is historical average for the requested dates.",
         }
     except Exception as e:
-        return {"error": f"Weather lookup failed: {e}"}
+        return {"error": "Weather service unavailable. Try again later."}
 
 
 def _format_forecast(data: dict, lat: float, lon: float, start: str, end: str, ftype: str) -> dict:

@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from html import unescape
+from urllib.parse import urlparse
 
 
 async def find_mistake_fares(
@@ -43,6 +44,9 @@ async def find_mistake_fares(
 
     for source_name, url in feeds:
         try:
+            _allowed = {"www.theflightdeal.com", "secretflying.com", "www.secretflying.com"}
+            if urlparse(url).hostname not in _allowed:
+                continue
             resp = await client.get(
                 url,
                 headers={"User-Agent": "Mozilla/5.0 WanderAgent travel-deals-rss-parser"},

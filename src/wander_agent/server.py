@@ -51,6 +51,16 @@ from .tools.meetup import multi_origin_meetup
 from .tools.aurora import find_aurora_destinations
 from .tools.mistake_fares import find_mistake_fares
 from .tools.visa import check_visa_requirement, visa_free_destinations
+from .tools.restaurants import search_restaurants_bars
+
+# New utility tools
+from .tools.packing import generate_packing_list
+from .tools.places import find_places
+from .tools.jetlag import calculate_jet_lag
+from .tools.phrasebook import get_language_phrasebook
+from .tools.stopover import get_stopover_guide
+from .tools.travel_news import get_travel_news
+from .tools.health import check_travel_health
 
 # Traveler profile (persistent memory)
 from .tools.profile import (
@@ -63,6 +73,17 @@ from .tools.profile import (
 # Ground transport + bookable trip package
 from .tools.ground_transport import search_ground_transport
 from .tools.package import plan_trip_package
+
+# New high-impact tools
+from .tools.nomad_score import score_nomad_cities
+from .tools.transit_visa import check_transit_visa
+from .tools.flight_carbon import calculate_flight_carbon
+from .tools.fare_calendar import fare_calendar
+from .tools.split_ticket import find_split_ticket
+from .tools.passport_power import get_passport_power
+from .tools.open_jaw import find_open_jaw
+from .tools.cheapest_month import find_cheapest_month
+from .tools.local_sim import get_local_sim_guide
 
 
 @dataclass
@@ -902,8 +923,436 @@ async def tool_plan_trip_package(
     )
 
 
+
+@mcp.tool()
+async def tool_search_restaurants_bars(
+    latitude: float,
+    longitude: float,
+    category: str = "all",
+    radius_m: int = 1000,
+    max_results: int = 15,
+    cuisine: str | None = None,
+    city: str | None = None,
+) -> dict:
+    """Find restaurants, bars, pubs, cafes near a location with ratings and booking links.
+
+    Returns real venues with cuisine, price level, opening hours, distance,
+    and direct links to Google Maps, Zomato, TripAdvisor, Yelp, OpenTable,
+    Resy (restaurants), Untappd (bars/pubs), and Foursquare.
+
+    Ratings available if FOURSQUARE_API_KEY env var is set (free tier).
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+        category: restaurant | bar | pub | cafe | nightlife | all
+        radius_m: Walk radius in metres (default 1000 = ~12min walk)
+        max_results: Max venues (1-30)
+        cuisine: Filter by cuisine e.g. "italian", "japanese", "thai", "indian"
+        city: City name for better search links e.g. "Tokyo", "Paris"
+    """
+    return await search_restaurants_bars(
+        latitude, longitude, category, radius_m, max_results, cuisine, city,
+    )
+
+
+
+# ============================================================
+# NEW UTILITY TOOLS
+# ============================================================
+
+@mcp.tool()
+async def tool_generate_packing_list(
+    destination: str,
+    start_date: str,
+    end_date: str,
+    activities: str | None = None,
+    budget_level: str = "moderate",
+    travelers: int = 1,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> dict:
+    """Generate a smart packing list tailored to destination, weather, and activities.
+
+    Fetches live weather to adapt clothing and gear suggestions.
+
+    Args:
+        destination: City or country name
+        start_date: YYYY-MM-DD
+        end_date: YYYY-MM-DD
+        activities: Comma-separated (e.g., "beach,hiking,business,nightlife")
+        budget_level: budget, moderate, luxury
+        travelers: Number of travelers
+        latitude: Optional — auto-fetched if omitted
+        longitude: Optional — auto-fetched if omitted
+    """
+    return await generate_packing_list(
+        destination, start_date, end_date, activities,
+        budget_level, travelers, latitude, longitude,
+    )
+
+
+@mcp.tool()
+async def tool_find_places(
+    latitude: float,
+    longitude: float,
+    category: str,
+    radius_km: int = 20,
+    max_results: int = 15,
+    city: str | None = None,
+) -> dict:
+    """Find viewpoints, beaches, hiking trails, coworking spaces, and more.
+
+    Uses OpenStreetMap — no API key required.
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+        category: viewpoint | beach | hiking | coworking | waterfall | camping | market | hot_spring | museum | park
+        radius_km: Search radius in km (1-100)
+        max_results: Max places to return
+        city: City name for richer search links (e.g., "Bali", "Cape Town")
+    """
+    return await find_places(latitude, longitude, category, radius_km, max_results, city)
+
+
+@mcp.tool()
+async def tool_calculate_jet_lag(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    flight_duration_hours: float = 0.0,
+) -> dict:
+    """Calculate jet lag severity and give a science-based recovery schedule.
+
+    Covers pre-departure schedule shift, on-plane tips, melatonin timing,
+    and post-arrival light exposure strategy.
+
+    Args:
+        origin: City or IATA code (e.g., "New York", "JFK")
+        destination: City or IATA code (e.g., "Tokyo", "NRT")
+        departure_date: YYYY-MM-DD
+        flight_duration_hours: Flight time in hours (0 = auto-estimated)
+    """
+    return await calculate_jet_lag(origin, destination, departure_date, flight_duration_hours)
+
+
+@mcp.tool()
+async def tool_get_language_phrasebook(
+    destination: str,
+    language_code: str | None = None,
+    category: str | None = None,
+) -> dict:
+    """Get a phrasebook for the local language at a destination.
+
+    Covers 17 languages with pronunciation guides and essential phrases.
+
+    Args:
+        destination: City or country name (e.g., "Tokyo", "France", "Bangkok")
+        language_code: Override language (ja, fr, es, it, de, pt, th, zh, ar, ko, hi, vi, id, tr, ms, sw)
+        category: greeting | essential | food | transport | shopping | emergency | accommodation | numbers
+    """
+    return await get_language_phrasebook(destination, language_code, category)
+
+
+@mcp.tool()
+async def tool_get_stopover_guide(
+    airport: str,
+    layover_hours: float,
+    passport_country: str | None = None,
+) -> dict:
+    """What to do during a layover at a major hub airport.
+
+    Covers in-terminal activities, city excursions, and transit visa info
+    for IST, DXB, SIN, DOH, NRT, HND, CDG, HKG, ICN, AMS.
+
+    Args:
+        airport: IATA code (e.g., "DXB", "SIN", "IST")
+        layover_hours: Total layover duration in hours
+        passport_country: ISO-2 code for transit visa check (e.g., "IN", "US")
+    """
+    return await get_stopover_guide(airport, layover_hours, passport_country)
+
+
+@mcp.tool()
+async def tool_get_travel_news(
+    destination: str,
+    days_lookback: int = 7,
+    max_results: int = 10,
+) -> dict:
+    """Get recent travel news and disruption alerts for a destination.
+
+    Scans Google News RSS for strikes, airport closures, entry bans, protests.
+    No API key required.
+
+    Args:
+        destination: City or country name (e.g., "Paris", "Thailand")
+        days_lookback: Only news from last N days (1-30)
+        max_results: Max articles to return
+    """
+    return await get_travel_news(destination, days_lookback, max_results)
+
+
+@mcp.tool()
+async def tool_check_travel_health(
+    destination_iso2: str,
+    trip_duration_days: int = 14,
+) -> dict:
+    """Health requirements, vaccine recommendations, and safety tips for a destination.
+
+    Covers required vaccines, CDC/WHO recommendations, water safety, mosquito risk,
+    altitude sickness, food safety, and a pre-departure preparation timeline.
+
+    Args:
+        destination_iso2: ISO 2-letter country code OR IATA airport code (e.g., "TH", "JP", "BKK", "DPS")
+        trip_duration_days: Trip length (affects malaria prophylaxis advice etc.)
+    """
+    return await check_travel_health(destination_iso2, trip_duration_days)
+
+@mcp.tool()
+async def tool_score_nomad_cities(
+    cities: str,
+    month: int | None = None,
+    weights: str = "cost:25,safety:20,internet:15,weather:20,visa:10,lifestyle:10",
+) -> dict:
+    """Score and rank cities for digital nomad / remote-work suitability.
+
+    Combines cost of living, safety advisory, internet speed index, weather
+    comfort, visa ease, and lifestyle/coworking data into a single ranked score.
+    No API key required.
+
+    Args:
+        cities: Comma-separated city names (e.g., "Bali,Lisbon,Chiang Mai,Medellin")
+        month: Month 1-12 to evaluate weather (default: current month)
+        weights: Scoring weights as "dimension:percent" pairs summing to 100.
+                 Dimensions: cost, safety, internet, weather, visa, lifestyle
+    """
+    return await score_nomad_cities(cities, month, weights)
+
+
+@mcp.tool()
+async def tool_check_transit_visa(
+    passport_country: str,
+    layover_airport: str,
+    connecting_to: str | None = None,
+) -> dict:
+    """Check if you need a transit visa for a layover airport.
+
+    Covers the most common passport + layover combinations for 40+ major hubs:
+    LHR, JFK, LAX, FRA, AMS, CDG, DXB, SIN, IST, DOH, NRT, ICN, HKG, YYZ,
+    SYD, and more. This is a common trip-ruiner — carriers deny boarding if
+    you lack the required transit document. Check BEFORE booking.
+
+    Args:
+        passport_country: Your passport ISO2 code (e.g., "IN", "US", "NG")
+        layover_airport: IATA code of layover airport (e.g., "LHR", "DXB", "JFK")
+        connecting_to: Optional final destination airport IATA (for context)
+    """
+    return await check_transit_visa(passport_country, layover_airport, connecting_to)
+
+
+@mcp.tool()
+async def tool_calculate_flight_carbon(
+    origin: str,
+    destination: str,
+    passengers: int = 1,
+    cabin_class: str = "economy",
+    trip_type: str = "round_trip",
+) -> dict:
+    """Calculate CO2e carbon footprint for a flight.
+
+    Uses ICAO/DEFRA 2024 emission factors including radiative forcing (RFI ×1.9).
+    Shows per-passenger and total emissions, carbon offset cost at Gold Standard
+    prices ($18/tonne), and train/car comparison for short-to-medium routes.
+    No API key required.
+
+    Args:
+        origin: Origin airport IATA code (e.g., "JFK")
+        destination: Destination airport IATA code (e.g., "LHR")
+        passengers: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        trip_type: one_way | round_trip
+    """
+    return await calculate_flight_carbon(origin, destination, passengers, cabin_class, trip_type)
+
+
+@mcp.tool()
+async def tool_fare_calendar(
+    origin: str,
+    destination: str,
+    year: int | None = None,
+    month: int | None = None,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+    trip_length_days: int | None = None,
+) -> dict:
+    """Show a full month price grid — find the cheapest day to fly.
+
+    Samples up to 15 departure dates per month and returns prices, day-of-week
+    analysis, price tiers (budget/mid/expensive), and best/worst weeks. Useful
+    for flexible travelers who can shift by a few days to save money.
+
+    Args:
+        origin: Origin airport IATA code (e.g., "JFK")
+        destination: Destination airport IATA code (e.g., "LHR")
+        year: Year (default: next occurrence of month)
+        month: Month 1-12 (default: next month)
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code (e.g., "USD", "EUR", "GBP")
+        trip_length_days: If set, price as round-trip (return = departure + N days)
+    """
+    return await fare_calendar(origin, destination, year, month, adults, cabin_class, currency, trip_length_days)
+
+
+@mcp.tool()
+async def tool_find_split_ticket(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+    min_connection_hours: float = 3.0,
+) -> dict:
+    """Find savings by booking two separate tickets through a hub airport.
+
+    OTAs are contractually forbidden from recommending this. Savings of
+    20-60% are common on long-haul routes with strong hub competition.
+    Works by pricing origin→hub and hub→destination independently.
+
+    ⚠️ Carries missed-connection risk — read ALL risks in the result before booking.
+
+    Args:
+        origin: Origin airport IATA code (e.g., "SFO")
+        destination: Destination airport IATA code (e.g., "DEL")
+        departure_date: YYYY-MM-DD departure date
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code
+        min_connection_hours: Minimum buffer hours between tickets at hub
+    """
+    return await find_split_ticket(origin, destination, departure_date, adults, cabin_class, currency, min_connection_hours)
+
+
+@mcp.tool()
+async def tool_get_passport_power(
+    passport_country: str,
+    compare_with: str | None = None,
+) -> dict:
+    """Rank passport strength and optionally compare two passports head-to-head.
+
+    Shows visa-free access count, frictionless travel percentage, regional
+    breakdown, and Henley Index 2024 rank. When compare_with is provided,
+    shows exactly which destinations each passport unlocks that the other doesn't.
+    Critical for dual-passport holders and immigration decision-making.
+
+    No API key required — uses built-in visa dataset.
+
+    Args:
+        passport_country: Your passport ISO2 code (e.g., "US", "IN", "NG", "CN")
+        compare_with: Optional second passport ISO2 for comparison (e.g., "GB")
+    """
+    return await get_passport_power(passport_country, compare_with)
+
+
+@mcp.tool()
+async def tool_find_open_jaw(
+    origin: str,
+    fly_into: str,
+    fly_out_from: str,
+    outbound_date: str,
+    return_date: str,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+) -> dict:
+    """Plan an open-jaw trip: fly into one city, travel overland, fly out from another.
+
+    Example: JFK → Rome, train Rome → Paris, Paris → JFK.
+    Composes flight search + ground transport tools. Shows total cost vs a simple
+    round-trip, so you can see how much extra it costs to visit two cities.
+
+    Accepts both IATA codes (FCO, CDG) and city names (Rome, Paris).
+
+    Args:
+        origin: Home airport IATA or city (e.g., "JFK" or "New York")
+        fly_into: First destination IATA or city (e.g., "FCO" or "Rome")
+        fly_out_from: Final departure IATA or city (e.g., "CDG" or "Paris")
+        outbound_date: YYYY-MM-DD — fly origin → fly_into
+        return_date: YYYY-MM-DD — fly fly_out_from → origin
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code
+    """
+    return await find_open_jaw(origin, fly_into, fly_out_from, outbound_date, return_date, adults, cabin_class, currency)
+
+
+@mcp.tool()
+async def tool_find_cheapest_month(
+    origin: str,
+    destination: str,
+    months_ahead: int = 12,
+    adults: int = 1,
+    cabin_class: str = "economy",
+    currency: str = "USD",
+    trip_length_days: int = 7,
+    trip_type: str = "round_trip",
+) -> dict:
+    """Find the cheapest month to fly a route over the next N months.
+
+    Samples the first Tuesday of each month (statistically cheapest booking day).
+    Returns all months ranked by price with season analysis. Flexible travelers
+    can save hundreds by shifting their trip by just one or two months.
+
+    Complements fare_calendar (day-level within one month — this is month-level
+    across a full year).
+
+    Args:
+        origin: Origin airport IATA code (e.g., "JFK")
+        destination: Destination airport IATA code (e.g., "BCN")
+        months_ahead: Future months to scan (1-12, default 12)
+        adults: Number of passengers
+        cabin_class: economy | premium_economy | business | first
+        currency: Currency code
+        trip_length_days: Days for round-trip return leg (departure + N)
+        trip_type: round_trip | one_way
+    """
+    return await find_cheapest_month(origin, destination, months_ahead, adults, cabin_class, currency, trip_length_days, trip_type)
+
+
+@mcp.tool()
+async def tool_get_local_sim_guide(
+    country: str,
+    trip_duration_days: int = 7,
+    data_heavy: bool = False,
+) -> dict:
+    """Get local SIM card and eSIM recommendations for a destination country.
+
+    Returns operator names, approximate cost, data allowance, where to buy,
+    activation steps, tethering policy, and duration-based advice.
+    Covers 25+ countries. Falls back to Airalo/Holafly for unlisted countries.
+
+    eSIM recommended if your phone supports it — activate before boarding.
+
+    Args:
+        country: Country name (e.g., "Thailand"), ISO2 code (e.g., "TH"), or city (e.g., "Bangkok")
+        trip_duration_days: Trip length in days — affects local SIM vs eSIM recommendation
+        data_heavy: True if you stream video, work remotely, or need constant hotspot
+    """
+    return await get_local_sim_guide(country, trip_duration_days, data_heavy)
+
+
 def main():
-    mcp.run(transport="stdio")
+    import os
+    transport = os.environ.get("WANDER_TRANSPORT", "stdio")
+    host = os.environ.get("WANDER_HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8000"))
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        mcp.run(transport=transport, host=host, port=port)
 
 
 if __name__ == "__main__":

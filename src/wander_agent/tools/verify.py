@@ -66,10 +66,12 @@ async def verify_place(
         pass
 
     # Source 1: Wikidata SPARQL (free, no auth, no rate limit)
+    import re as _re
+    safe_name = _re.sub(r'["\\{{}}\<\>]', '', place_name)[:200]
     try:
         sparql_query = f"""
         SELECT ?item ?itemLabel ?coord ?desc WHERE {{
-          ?item rdfs:label "{place_name}"@en .
+          ?item rdfs:label "{safe_name}"@en .
           OPTIONAL {{ ?item wdt:P625 ?coord . }}
           OPTIONAL {{ ?item schema:description ?desc . FILTER(LANG(?desc) = "en") }}
           SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}

@@ -44,8 +44,11 @@ async def score_destinations(
     weight_map: dict = {"cost": 3, "weather": 3, "safety": 2, "events": 1, "quality_of_life": 1}
     for pair in weights.split(","):
         if ":" in pair:
-            k, v = pair.split(":")
-            weight_map[k.strip()] = float(v.strip())
+            try:
+                k, v = pair.split(":", 1)
+                weight_map[k.strip()] = float(v.strip())
+            except (ValueError, TypeError):
+                pass
 
     async def _score_one(dest: str) -> dict:
         geo = await geocode(dest)
@@ -134,9 +137,15 @@ async def score_destinations(
         else:
             w_score = max(0, 10 - abs(avg_temp - 22) - rainy_pct * 3)
 
+        flight_booking_links = flight_result.get("booking_links", {}) if isinstance(flight_result, dict) else {}
+        hotel_booking_links = hotels.get("booking_links", {}) if isinstance(hotels, dict) else {}
+        kiwi_live_fares = flight_result.get("kiwi_live_fares", []) if isinstance(flight_result, dict) else []
         return {
             "destination": dest,
             "country": country,
+            "flight_booking_links": flight_booking_links,
+            "hotel_booking_links": hotel_booking_links,
+            "kiwi_live_fares": kiwi_live_fares,
             "metrics": {
                 "avg_temp_c": avg_temp,
                 "rainy_days_pct": round(rainy_pct * 100, 1),
