@@ -58,6 +58,16 @@ EXPECTED_TOOLS = [
     "tool_get_travel_news",
     "tool_score_nomad_cities",
     "tool_search_restaurants_bars",
+    "tool_save_trip",
+    "tool_list_my_trips",
+    "tool_get_trip_status",
+    "tool_update_trip",
+    "tool_delete_trip",
+    "tool_watch_fare",
+    "tool_list_fare_watches",
+    "tool_check_fare_watches",
+    "tool_stop_fare_watch",
+    "tool_rank_trip_options",
 ]
 
 

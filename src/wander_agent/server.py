@@ -85,6 +85,22 @@ from .tools.open_jaw import find_open_jaw
 from .tools.cheapest_month import find_cheapest_month
 from .tools.local_sim import get_local_sim_guide
 
+# Trip memory + fare monitoring + value reasoning
+from .tools.trips import (
+    save_trip,
+    list_my_trips,
+    get_trip_status,
+    update_trip,
+    delete_trip,
+)
+from .tools.fare_watch import (
+    watch_fare,
+    list_fare_watches,
+    check_fare_watches,
+    stop_fare_watch,
+)
+from .tools.value_rank import rank_trip_options
+
 
 @dataclass
 class AppContext:
@@ -145,7 +161,26 @@ mcp = FastMCP(
         "- curated_snapshot: our dataset (verify with official_link before booking)\n"
         "- estimated: calculated estimate\n"
         "- deeplink: link to live prices on the service's own site\n"
-        "- wikidata_fallback: Wikidata attractions (no OpenTripMap key configured)\n\n"
+        "- wikidata_fallback: Wikidata attractions (no OpenTripMap key configured)\n"
+        "Many results also carry a data_meta block (trust_score 0-100, trust_label, "
+        "meaning, fetched_at). Quote the trust_label when a number drives a booking decision.\n\n"
+
+        "== TRIP MEMORY ==\n"
+        "When a traveler commits to a destination, call save_trip to persist it with an "
+        "8-item booking checklist. On return, call list_my_trips / get_trip_status and pick "
+        "up where they left off. Tick items with update_trip (mark_done) as flights/hotels/"
+        "visa get sorted. This memory is the agent's edge — no OTA remembers your trip.\n\n"
+
+        "== FARE MONITORING ==\n"
+        "If a price is too high or the traveler is undecided, offer watch_fare with a "
+        "target_price. Later call check_fare_watches to re-price and surface target_hit / "
+        "price_drop buy signals first.\n\n"
+
+        "== VALUE, NOT JUST PRICE ==\n"
+        "When comparing 2+ flight/trip options, call rank_trip_options. The cheapest fare "
+        "often hides self-transfers, hidden-city risk, no baggage, or non-refundability. "
+        "Surface value_score and the winner's 'why', and call out flags (hidden-city, "
+        "split-ticket, self-transfer) explicitly.\n\n"
 
         "== RESPONSE FORMAT ==\n"
         "Structure every travel answer as:\n"
@@ -194,10 +229,8 @@ async def tool_find_destinations_by_budget(
     currency: str = "USD",
     max_results: int = 10,
 ) -> dict:
-    """INSPIRATION: Find destinations achievable within a total budget.
-
-    "I have $1500, where can I go?" - returns ranked destinations under budget
-    with flight + hotel costs calculated.
+    """INSPIRATION: "I have $1500, where can I go?" Ranks destinations under a total
+    budget with flight + hotel costs calculated.
 
     Args:
         origin: Departure airport IATA code (e.g., "JFK")
@@ -484,9 +517,11 @@ async def tool_best_month_to_visit(
     longitude: float,
     preferences: str = "warm_dry",
 ) -> dict:
-    """DIFFERENTIATOR: Best month to visit based on 5 years of climate data.
+    """WEATHER timing: best month to visit by climate, not price.
 
-    "When is Bali at its best?" Uses Open-Meteo historical archive. No auth.
+    "When is Bali at its best?" Uses 5yr Open-Meteo historical archive. No auth.
+    For cheapest month by airfare use find_cheapest_month; for day-level price
+    grid within a month use fare_calendar.
 
     Args:
         latitude: Location latitude
@@ -768,10 +803,7 @@ async def tool_onboard_traveler(
     visas_held: str | None = None,
     eta_held: str | None = None,
 ) -> dict:
-    """First-time setup. Saves profile so the agent remembers you forever.
-
-    Run this once when the user is new. After this, get_traveler_profile
-    returns their stored preferences on every future session.
+    """First-time setup. Saves the traveler profile for reuse every future session.
 
     Args:
         name: First name
@@ -893,15 +925,10 @@ async def tool_plan_trip_package(
     interests: str | None = None,
     include_ground_transport: bool = True,
 ) -> dict:
-    """THE KILLER TOOL: Complete bookable trip package in one call.
+    """Complete bookable trip package in one call: flights, hotels, visa, weather,
+    advisory, attractions, ground transport, cost estimate + booking URLs/checklist.
 
-    Simultaneously fetches and composes: flights (multi-airport),
-    hotels, visa requirements, weather, safety advisory, attractions,
-    ground transport, and a cost estimate — with direct booking URLs
-    for every section and a step-by-step booking checklist.
-
-    Use this when the user has a specific trip in mind.
-    Use score_destinations first if they're still deciding where to go.
+    Use when the destination is decided; use score_destinations if still deciding.
 
     Args:
         origin: Departure airport IATA or city (e.g., "DXB", "JFK", "New York")
@@ -934,13 +961,9 @@ async def tool_search_restaurants_bars(
     cuisine: str | None = None,
     city: str | None = None,
 ) -> dict:
-    """Find restaurants, bars, pubs, cafes near a location with ratings and booking links.
-
-    Returns real venues with cuisine, price level, opening hours, distance,
-    and direct links to Google Maps, Zomato, TripAdvisor, Yelp, OpenTable,
-    Resy (restaurants), Untappd (bars/pubs), and Foursquare.
-
-    Ratings available if FOURSQUARE_API_KEY env var is set (free tier).
+    """Find restaurants/bars/pubs/cafes near a location: cuisine, price, hours,
+    distance + links to Google Maps, Zomato, TripAdvisor, Yelp, OpenTable, Resy,
+    Untappd, Foursquare. Ratings need FOURSQUARE_API_KEY (free tier).
 
     Args:
         latitude: Location latitude
@@ -1187,11 +1210,11 @@ async def tool_fare_calendar(
     currency: str = "USD",
     trip_length_days: int | None = None,
 ) -> dict:
-    """Show a full month price grid — find the cheapest day to fly.
+    """PRICE timing (day-level): cheapest DAY to fly within ONE month.
 
-    Samples up to 15 departure dates per month and returns prices, day-of-week
-    analysis, price tiers (budget/mid/expensive), and best/worst weeks. Useful
-    for flexible travelers who can shift by a few days to save money.
+    Samples up to 15 departure dates in one month — day-of-week analysis, price
+    tiers, best/worst weeks. For cheapest MONTH across a year use
+    find_cheapest_month; for best weather use best_month_to_visit.
 
     Args:
         origin: Origin airport IATA code (e.g., "JFK")
@@ -1216,13 +1239,9 @@ async def tool_find_split_ticket(
     currency: str = "USD",
     min_connection_hours: float = 3.0,
 ) -> dict:
-    """Find savings by booking two separate tickets through a hub airport.
-
-    OTAs are contractually forbidden from recommending this. Savings of
-    20-60% are common on long-haul routes with strong hub competition.
-    Works by pricing origin→hub and hub→destination independently.
-
-    ⚠️ Carries missed-connection risk — read ALL risks in the result before booking.
+    """Find savings by booking two separate tickets through a hub (prices origin→hub
+    and hub→destination independently). 20-60% off on competitive long-haul routes.
+    ⚠️ Missed-connection risk is on the traveler — surface result risks before booking.
 
     Args:
         origin: Origin airport IATA code (e.g., "SFO")
@@ -1241,14 +1260,9 @@ async def tool_get_passport_power(
     passport_country: str,
     compare_with: str | None = None,
 ) -> dict:
-    """Rank passport strength and optionally compare two passports head-to-head.
-
-    Shows visa-free access count, frictionless travel percentage, regional
-    breakdown, and Henley Index 2024 rank. When compare_with is provided,
-    shows exactly which destinations each passport unlocks that the other doesn't.
-    Critical for dual-passport holders and immigration decision-making.
-
-    No API key required — uses built-in visa dataset.
+    """Rank passport strength, optionally compare two head-to-head: visa-free count,
+    frictionless %, regional breakdown, Henley 2024 rank. With compare_with, shows
+    which destinations each passport unlocks that the other doesn't.
 
     Args:
         passport_country: Your passport ISO2 code (e.g., "US", "IN", "NG", "CN")
@@ -1268,13 +1282,9 @@ async def tool_find_open_jaw(
     cabin_class: str = "economy",
     currency: str = "USD",
 ) -> dict:
-    """Plan an open-jaw trip: fly into one city, travel overland, fly out from another.
-
-    Example: JFK → Rome, train Rome → Paris, Paris → JFK.
-    Composes flight search + ground transport tools. Shows total cost vs a simple
-    round-trip, so you can see how much extra it costs to visit two cities.
-
-    Accepts both IATA codes (FCO, CDG) and city names (Rome, Paris).
+    """Plan an open-jaw trip: fly into one city, overland, fly out from another
+    (e.g. JFK→Rome, train to Paris, Paris→JFK). Shows total vs simple round-trip.
+    Accepts IATA codes or city names.
 
     Args:
         origin: Home airport IATA or city (e.g., "JFK" or "New York")
@@ -1300,14 +1310,11 @@ async def tool_find_cheapest_month(
     trip_length_days: int = 7,
     trip_type: str = "round_trip",
 ) -> dict:
-    """Find the cheapest month to fly a route over the next N months.
+    """PRICE timing (month-level): cheapest MONTH to fly across the next N months.
 
-    Samples the first Tuesday of each month (statistically cheapest booking day).
-    Returns all months ranked by price with season analysis. Flexible travelers
-    can save hundreds by shifting their trip by just one or two months.
-
-    Complements fare_calendar (day-level within one month — this is month-level
-    across a full year).
+    Samples the first Tuesday of each month, ranks months by price with season
+    analysis. For cheapest DAY within one month use fare_calendar; for best
+    weather use best_month_to_visit.
 
     Args:
         origin: Origin airport IATA code (e.g., "JFK")
@@ -1328,13 +1335,9 @@ async def tool_get_local_sim_guide(
     trip_duration_days: int = 7,
     data_heavy: bool = False,
 ) -> dict:
-    """Get local SIM card and eSIM recommendations for a destination country.
-
-    Returns operator names, approximate cost, data allowance, where to buy,
-    activation steps, tethering policy, and duration-based advice.
-    Covers 25+ countries. Falls back to Airalo/Holafly for unlisted countries.
-
-    eSIM recommended if your phone supports it — activate before boarding.
+    """Local SIM/eSIM guide for a country: operators, cost, data, where to buy,
+    activation, tethering policy, duration advice. 25+ countries; falls back to
+    Airalo/Holafly otherwise.
 
     Args:
         country: Country name (e.g., "Thailand"), ISO2 code (e.g., "TH"), or city (e.g., "Bangkok")
@@ -1342,6 +1345,195 @@ async def tool_get_local_sim_guide(
         data_heavy: True if you stream video, work remotely, or need constant hotspot
     """
     return await get_local_sim_guide(country, trip_duration_days, data_heavy)
+
+
+# ============================================================
+# TRIP MEMORY (persistent across sessions)
+# ============================================================
+
+@mcp.tool()
+async def tool_save_trip(
+    destination: str,
+    depart_date: str | None = None,
+    return_date: str | None = None,
+    origin: str | None = None,
+    travelers: int = 1,
+    passport_country: str | None = None,
+    purpose: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    """Save a trip the traveler is planning. Returns a trip_id + 8-item booking checklist.
+
+    Use when a traveler commits to a destination so progress persists across sessions.
+
+    Args:
+        destination: City or country
+        depart_date: YYYY-MM-DD
+        return_date: YYYY-MM-DD
+        origin: Home airport IATA
+        travelers: Headcount
+        passport_country: ISO2 for visa context
+        purpose: leisure/business/etc
+        notes: Free text
+    """
+    return await save_trip(destination, depart_date, return_date, origin,
+                           travelers, passport_country, purpose, notes)
+
+
+@mcp.tool()
+async def tool_list_my_trips(status: str | None = None) -> dict:
+    """List the traveler's saved trips with checklist progress.
+
+    Args:
+        status: Filter by planning/booked/completed/cancelled (omit for all)
+    """
+    return await list_my_trips(status)
+
+
+@mcp.tool()
+async def tool_get_trip_status(
+    trip_id: str | None = None,
+    destination: str | None = None,
+) -> dict:
+    """Get a saved trip's full state + checklist progress. Look up by id or destination.
+
+    Args:
+        trip_id: 8-char trip id
+        destination: City/country if id unknown
+    """
+    return await get_trip_status(trip_id, destination)
+
+
+@mcp.tool()
+async def tool_update_trip(
+    trip_id: str,
+    status: str | None = None,
+    depart_date: str | None = None,
+    return_date: str | None = None,
+    notes: str | None = None,
+    mark_done: str | None = None,
+    mark_undone: str | None = None,
+    checklist_note: str | None = None,
+    shortlist_flight: dict | None = None,
+    shortlist_hotel: dict | None = None,
+) -> dict:
+    """Update a saved trip: change status/dates, tick checklist items, shortlist options.
+
+    Checklist keys: book_flights, book_hotel, check_visa, travel_insurance,
+    book_ground_transport, check_advisory, pack, notify_bank.
+
+    Args:
+        trip_id: 8-char trip id
+        status: planning/booked/completed/cancelled
+        depart_date: YYYY-MM-DD
+        return_date: YYYY-MM-DD
+        notes: Replace notes
+        mark_done: Checklist key to mark done
+        mark_undone: Checklist key to un-mark
+        checklist_note: Note for the marked item
+        shortlist_flight: Flight option dict to save
+        shortlist_hotel: Hotel option dict to save
+    """
+    return await update_trip(trip_id, status, depart_date, return_date, notes,
+                             mark_done, mark_undone, checklist_note,
+                             shortlist_flight, shortlist_hotel)
+
+
+@mcp.tool()
+async def tool_delete_trip(trip_id: str) -> dict:
+    """Delete a saved trip.
+
+    Args:
+        trip_id: 8-char trip id
+    """
+    return await delete_trip(trip_id)
+
+
+# ============================================================
+# FARE MONITORING
+# ============================================================
+
+@mcp.tool()
+async def tool_watch_fare(
+    origin: str,
+    destination: str,
+    depart_date: str,
+    return_date: str | None = None,
+    adults: int = 1,
+    currency: str = "USD",
+    target_price: float | None = None,
+) -> dict:
+    """Start watching a flight route. Records a baseline price and a target to alert at.
+
+    Args:
+        origin: IATA
+        destination: IATA
+        depart_date: YYYY-MM-DD
+        return_date: YYYY-MM-DD for round trip
+        adults: Passengers
+        currency: USD/EUR/etc
+        target_price: Alert when price falls to/below this
+    """
+    return await watch_fare(origin, destination, depart_date, return_date,
+                            adults, currency, target_price)
+
+
+@mcp.tool()
+async def tool_list_fare_watches(status: str | None = None) -> dict:
+    """List saved fare watches with baseline/last/low prices.
+
+    Args:
+        status: Filter active/paused/triggered (omit for all)
+    """
+    return await list_fare_watches(status)
+
+
+@mcp.tool()
+async def tool_check_fare_watches(watch_id: str | None = None) -> dict:
+    """Re-price watched routes now and return buy-signal alerts.
+
+    Alerts: target_hit, price_drop, price_rise, no_change.
+
+    Args:
+        watch_id: Check one watch, or omit to check all active watches
+    """
+    return await check_fare_watches(watch_id)
+
+
+@mcp.tool()
+async def tool_stop_fare_watch(watch_id: str, delete: bool = False) -> dict:
+    """Pause or delete a fare watch.
+
+    Args:
+        watch_id: Watch id
+        delete: True deletes; False just pauses
+    """
+    return await stop_fare_watch(watch_id, delete)
+
+
+# ============================================================
+# VALUE REASONING (price is not everything)
+# ============================================================
+
+@mcp.tool()
+async def tool_rank_trip_options(
+    options_json: str,
+    priority: str = "balanced",
+    currency: str = "USD",
+) -> dict:
+    """Rank flight/trip options on a 0-100 value score — price plus stops, duration,
+    refundability, baggage and hassle — not price alone.
+
+    Pass a JSON array of option objects with any of: price, duration_minutes, stops,
+    refundable, checked_bag_included, self_transfer, hidden_city, split_ticket,
+    visa_required, transit_visa_required, label.
+
+    Args:
+        options_json: JSON array of option objects
+        priority: cheapest/fastest/easiest/flexible/balanced
+        currency: Display currency
+    """
+    return await rank_trip_options(options_json, priority, currency)
 
 
 def main():
