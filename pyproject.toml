@@ -1,6 +1,6 @@
 [project]
 name = "wander-agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI travel agent MCP server - search flights, hotels, plan itineraries, optimize budgets. Import into Claude or any MCP-compatible AI."
 readme = "README.md"
 license = "MIT"

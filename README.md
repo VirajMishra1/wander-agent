@@ -681,3 +681,7 @@ grep -c "@mcp.tool()" src/wander_agent/server.py
 ---
 
 ## License
+
+MIT
+
+mcp-name: io.github.VirajMishra1/wander-agent
