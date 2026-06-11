@@ -6,7 +6,7 @@
 
 Ask your AI anything about travel — flights, hotels, visas, weather, safety, local food, packing lists — and get real data back, not hallucinations.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 </div>
 
@@ -151,13 +151,25 @@ Don't have it? Download from [python.org](https://www.python.org/downloads/).
 
 ### Step 2 — Install Wander Agent
 
+From PyPI (recommended):
+
+```bash
+pip install wander-agent
+```
+
+Or with [uv](https://docs.astral.sh/uv/) — no install at all, run directly:
+
+```bash
+uvx wander-agent
+```
+
+Or from source:
+
 ```bash
 git clone https://github.com/VirajMishra1/wander-agent.git
 cd wander-agent
 pip install -e .
 ```
-
-> **Using uv?** Replace `pip install -e .` with `uv pip install -e .`
 
 Verify it worked:
 

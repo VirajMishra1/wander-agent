@@ -101,6 +101,8 @@ from .tools.fare_watch import (
 )
 from .tools.value_rank import rank_trip_options
 
+from .utils.freshness import stamp
+
 
 @dataclass
 class AppContext:
@@ -361,8 +363,9 @@ async def tool_search_hotels(
         price_range: "100-300"
         ratings: "3,4,5"
     """
-    return await search_hotels(city, check_in, check_out, adults, rooms,
-                                max_results, currency, price_range, ratings)
+    return stamp(await search_hotels(city, check_in, check_out, adults, rooms,
+                                     max_results, currency, price_range, ratings),
+                 "scraped_live", source="google_hotels_scrape")
 
 
 @mcp.tool()
@@ -433,7 +436,8 @@ async def tool_get_travel_advisory(country: str) -> dict:
     Args:
         country: Country name in English (e.g., "Japan", "Egypt") or ISO code
     """
-    return await get_travel_advisory(country)
+    return stamp(await get_travel_advisory(country),
+                 "live_rss", source="US State Dept RSS")
 
 
 @mcp.tool()
@@ -445,7 +449,8 @@ async def tool_list_advisories_by_level(min_level: int = 3) -> dict:
     Args:
         min_level: 1-4. Default 3 = Reconsider Travel. 4 = Do Not Travel.
     """
-    return await list_advisories_by_level(min_level)
+    return stamp(await list_advisories_by_level(min_level),
+                 "live_rss", source="US State Dept RSS")
 
 
 @mcp.tool()
@@ -483,7 +488,8 @@ async def tool_get_cost_of_living(city: str, home_currency: str = "USD") -> dict
         city: City name (e.g., "Lisbon", "Tokyo", "San Francisco")
         home_currency: Your home currency (USD, EUR, etc.)
     """
-    return await get_cost_of_living(city, home_currency)
+    return stamp(await get_cost_of_living(city, home_currency),
+                 "curated_snapshot", source="built-in cost dataset")
 
 
 @mcp.tool()
@@ -547,7 +553,8 @@ async def tool_get_weather(
         start_date: YYYY-MM-DD
         end_date: YYYY-MM-DD
     """
-    return await get_weather(latitude, longitude, start_date, end_date)
+    return stamp(await get_weather(latitude, longitude, start_date, end_date),
+                 "live_forecast", source="open-meteo")
 
 
 @mcp.tool()
@@ -559,7 +566,8 @@ async def tool_convert_currency(amount: float, from_currency: str, to_currency: 
         from_currency: Source currency (e.g., "USD")
         to_currency: Target currency (e.g., "EUR")
     """
-    return await convert_currency(amount, from_currency, to_currency)
+    return stamp(await convert_currency(amount, from_currency, to_currency),
+                 "live_api", source="ECB / frankfurter.app")
 
 
 @mcp.tool()
@@ -570,7 +578,8 @@ async def tool_get_exchange_rates(base_currency: str, target_currencies: str | N
         base_currency: Base (e.g., "USD")
         target_currencies: Comma-separated targets or omit for all
     """
-    return await get_exchange_rates(base_currency, target_currencies)
+    return stamp(await get_exchange_rates(base_currency, target_currencies),
+                 "live_api", source="ECB / frankfurter.app")
 
 
 @mcp.tool()
@@ -587,7 +596,8 @@ async def tool_search_activities(
         category: culture, nature, food, shopping, nightlife, architecture, historic, museums, religion, sport
         max_results: 1-50
     """
-    return await search_activities(latitude, longitude, radius_km, category, max_results)
+    return stamp(await search_activities(latitude, longitude, radius_km, category, max_results),
+                 "wikidata_fallback", source="wikidata")
 
 
 @mcp.tool()
@@ -757,7 +767,8 @@ async def tool_check_visa_requirement(
         passport_country: ISO 2-letter (e.g., "US", "GB", "IN")
         destination_country: ISO 2-letter (e.g., "JP", "TH")
     """
-    return await check_visa_requirement(passport_country, destination_country)
+    return stamp(await check_visa_requirement(passport_country, destination_country),
+                 "curated_snapshot", source="built-in visa dataset")
 
 
 @mcp.tool()
@@ -773,7 +784,8 @@ async def tool_visa_free_destinations(
         passport_country: ISO 2-letter code
         include_categories: Comma-separated category filter
     """
-    return await visa_free_destinations(passport_country, include_categories)
+    return stamp(await visa_free_destinations(passport_country, include_categories),
+                 "curated_snapshot", source="built-in visa dataset")
 
 
 # ============================================================

@@ -209,7 +209,9 @@ async def get_local_events(
     if keyword:
         suggest_web_search.insert(0, f"{keyword} {city} {month}")
 
-    return {
+    from ..utils.freshness import stamp
+
+    return stamp({
         "city": city,
         "start_date": start_date,
         "end_date": end_date,
@@ -218,10 +220,9 @@ async def get_local_events(
         "results_count": len(events),
         "events": events,
         "booking_links": booking_links,
-        "data_confidence": confidence,
         "note": (
             "Live Eventbrite events shown above when available. "
             "Click booking_links for full listings on each platform."
         ),
         "suggest_web_search": suggest_web_search,
-    }
+    }, confidence, source="eventbrite")
