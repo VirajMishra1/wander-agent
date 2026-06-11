@@ -582,6 +582,34 @@ Ranked by a combination of practical impact and uniqueness — things no OTA, no
 
 ---
 
+## How much can you trust each number?
+
+Most results carry a `data_meta` block so the AI can tell you how reliable a figure is before you book:
+
+```json
+"data_meta": {
+  "confidence": "scraped_live",
+  "trust_score": 80,
+  "trust_label": "Live scrape",
+  "meaning": "Scraped from Google Flights just now. Real but can shift minute to minute.",
+  "fetched_at": "2026-06-02T18:30:00+00:00",
+  "source": "google_flights + kiwi.com"
+}
+```
+
+| Label | Trust | What it means |
+|-------|-------|---------------|
+| `deeplink` | 95 | Opens the live provider page — always current |
+| `live_api` | 90 | Official API (ECB rates, NOAA) |
+| `live_rss` | 85 | Live government feed (State Dept advisories) |
+| `live_forecast` | 85 | Open-Meteo live weather |
+| `scraped_live` | 80 | Real-time scrape — real but volatile |
+| `curated_snapshot` | 55 | Hand-curated dataset — verify before booking |
+| `wikidata_fallback` | 50 | Wikidata-derived |
+| `estimated` | 35 | Modeled figure — rough guide only |
+
+---
+
 ## Honest limitations
 
 **Flight prices:** Google Flights scraper can break if Google changes their page structure. Kiwi prices are real and bookable. Both run in parallel — if one fails the other still returns results.
@@ -645,6 +673,10 @@ grep -c "@mcp.tool()" src/wander_agent/server.py
 2. Import it in `src/wander_agent/server.py`
 3. Wrap with `@mcp.tool()` and an async wrapper function
 4. Restart your AI client to pick up the new tool
+
+**CI:** every push and PR to `main` runs the test suite on Python 3.10/3.11/3.12 and asserts the registered tool count.
+
+**Releases:** publishing a GitHub release triggers the PyPI publish workflow (trusted publishing — no tokens). Bump `version` in `pyproject.toml` and `server.json` first.
 
 ---
 
