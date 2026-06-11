@@ -26,6 +26,11 @@ _CONFIDENCE: dict[str, dict] = {
         "label": "Live forecast",
         "meaning": "Open-Meteo live weather forecast.",
     },
+    "live_api": {
+        "trust": 90,
+        "label": "Live API",
+        "meaning": "Fetched live from an official API (e.g. ECB rates, NOAA).",
+    },
     "deeplink": {
         "trust": 95,
         "label": "Direct link",
