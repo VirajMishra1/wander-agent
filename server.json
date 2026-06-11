@@ -1,18 +1,18 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.json",
-  "name": "io.github.virajmishra1/wander-agent",
-  "description": "60-tool AI travel agent: live flights and hotels, visas, weather, safety advisories, fare watching, cross-session trip memory, and value ranking. Zero API keys required.",
-  "version": "0.1.0",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.VirajMishra1/wander-agent",
+  "description": "60-tool AI travel agent: flights, hotels, visas, weather, fare watching, trip memory. No keys.",
+  "version": "0.1.1",
   "repository": {
     "url": "https://github.com/VirajMishra1/wander-agent",
     "source": "github"
   },
   "packages": [
     {
-      "registry_name": "pypi",
-      "name": "wander-agent",
-      "version": "0.1.0",
-      "runtime_hint": "uvx",
+      "registryType": "pypi",
+      "identifier": "wander-agent",
+      "version": "0.1.1",
+      "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
       }
