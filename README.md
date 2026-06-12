@@ -8,6 +8,8 @@ Ask your AI anything about travel — flights, hotels, visas, weather, safety, l
 
 [![CI](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+[See the launch demo](https://x.com/virajm1shra/status/2059930318359109965)
+
 </div>
 
 ---
