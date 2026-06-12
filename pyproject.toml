@@ -1,6 +1,6 @@
 [project]
 name = "wander-agent"
-version = "0.1.1"
+version = "0.1.2"
 description = "AI travel agent MCP server - search flights, hotels, plan itineraries, optimize budgets. Import into Claude or any MCP-compatible AI."
 readme = "README.md"
 license = "MIT"
@@ -14,6 +14,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
@@ -36,6 +39,11 @@ dev = [
 
 [project.scripts]
 wander-agent = "wander_agent.server:main"
+
+[project.urls]
+Homepage = "https://github.com/VirajMishra1/wander-agent"
+Repository = "https://github.com/VirajMishra1/wander-agent"
+Issues = "https://github.com/VirajMishra1/wander-agent/issues"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -6,7 +6,7 @@
 
 Ask your AI anything about travel — flights, hotels, visas, weather, safety, local food, packing lists — and get real data back, not hallucinations.
 
-[![CI](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/VirajMishra1/wander-agent/blob/main/LICENSE)
 
 [See the launch demo](https://x.com/virajm1shra/status/2059930318359109965)
 
@@ -434,7 +434,6 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 | Tool | What it does |
 |------|-------------|
 | `score_nomad_cities` | Ranks cities for remote work across 6 dimensions: cost, safety, internet speed, weather, visa ease, and lifestyle. Configurable weights. |
-| `check_transit_visa` | Do you need a transit visa at your layover? 200+ rules, 30+ airports. Catches the trip-ruiner before you book. |
 | `calculate_flight_carbon` | CO2e footprint for any flight using ICAO/DEFRA 2024 factors with radiative forcing (RFI ×1.9). Per-passenger and total emissions, Gold Standard offset cost, and train/car comparison for short routes. |
 
 ### 🎒 On the Ground

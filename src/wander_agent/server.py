@@ -1549,7 +1549,22 @@ async def tool_rank_trip_options(
 
 
 def main():
+    import argparse
     import os
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        pkg_version = version("wander-agent")
+    except PackageNotFoundError:
+        pkg_version = "dev"
+
+    parser = argparse.ArgumentParser(
+        prog="wander-agent",
+        description="AI travel agent MCP server with 60 tools. Runs over stdio for MCP clients like Claude Desktop; set WANDER_TRANSPORT=streamable-http to serve over HTTP.",
+    )
+    parser.add_argument("--version", action="version", version=f"wander-agent {pkg_version}")
+    parser.parse_args()
+
     transport = os.environ.get("WANDER_TRANSPORT", "stdio")
     host = os.environ.get("WANDER_HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
