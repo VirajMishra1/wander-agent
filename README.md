@@ -2,7 +2,7 @@
 
 # 🌍 Wander Agent
 
-**A travel planning AI with 60 tools, zero API keys required.**
+**A travel planning AI with 66 tools, zero API keys required.**
 
 Ask your AI anything about travel — flights, hotels, visas, weather, safety, local food, packing lists — and get real data back, not hallucinations.
 
@@ -132,6 +132,19 @@ Without this plugin, asking an AI "cheapest flights from New York to Tokyo in Au
 - **Saved trips** — a persistent trip with an 8-item booking checklist that survives across sessions
 - **Fare watching** — set a target price on a route, re-price on demand, get a buy signal when it drops
 - **Value ranking** — scores options 0–100 on price *plus* stops, duration, refundability, baggage and hassle (flags hidden-city / split-ticket risk), so cheapest isn't blindly "best"
+
+</details>
+
+<details>
+<summary><strong>💳 Credit Card Points & Miles</strong></summary>
+
+- **Points valuation** — is this award booking a good deal? Cents-per-point calculator with verdict (excellent / good / fair / poor) against 20+ program baselines
+- **Transfer partners** — which airlines and hotels can you transfer Chase UR / Amex MR / Citi TYP / Capital One / Bilt points to? With ratios and transfer times
+- **Points vs cash** — should you use points or pay cash? Factors in cpp value, opportunity cost, and what you'd earn back paying cash
+- **Earning calculator** — how many points does a $500 dinner earn on your Amex Gold? 9 cards modeled with bonus categories
+- **Sweet spot awards** — curated list of outsized-value redemptions: ANA first class for 120k VA miles (16.7cpp), Hyatt all-inclusive for 25k (2.4cpp), Turkish business for 45k (8.9cpp)
+- **Program comparison** — which of your points programs gives the best value for a specific booking?
+- **Card portfolio** — save your cards to your profile, points tools use them automatically
 
 </details>
 
@@ -356,7 +369,7 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 
 ---
 
-## All 60 Tools
+## All 66 Tools
 
 ### ✈️ Flights
 
@@ -465,7 +478,7 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 |------|-------------|
 | `get_traveler_profile` | Loads your saved profile: home airports, passports, currency, interests, and trip history. |
 | `onboard_traveler` | One-time setup. Saves your preferences so the AI uses them automatically in every future session. |
-| `update_traveler_profile` | Update any field or log a completed trip. |
+| `update_traveler_profile` | Update any field, manage credit cards in your portfolio, or log a completed trip. |
 | `get_trip_history` | Your logged trip history. |
 
 ### 🧳 Saved Trips (cross-session memory)
@@ -496,6 +509,19 @@ Persisted to `~/.wander_agent/fare_watches.json`. Records a baseline price and a
 | Tool | What it does |
 |------|-------------|
 | `rank_trip_options` | Scores a list of flight/trip options 0–100 on price plus stops, duration, refundability, baggage and hassle. Presets: cheapest / fastest / easiest / flexible / balanced. Flags hidden-city, split-ticket and self-transfer risk so the cheapest fare isn't blindly the winner. |
+
+### 💳 Credit Card Points & Miles
+
+Static dataset covering 20 loyalty programs (Chase UR, Amex MR, Citi TYP, Capital One, Bilt, 11 airlines, 4 hotel chains), 9 popular credit cards with bonus categories, and 10 curated sweet-spot awards. Card portfolio saved to `~/.wander_agent/profile.json`.
+
+| Tool | What it does |
+|------|-------------|
+| `estimate_points_value` | Is this award booking worth it? Calculates cents-per-point and compares against baseline valuations for the program. Returns excellent / good / fair / poor verdict. |
+| `find_transfer_partners` | Shows all airline and hotel transfer partners for a bank program (Chase UR → United, Hyatt, BA, etc.) with transfer ratios and times. Sorted by partner value. |
+| `calculate_points_or_cash` | Should you use points or pay cash for this booking? Factors in cpp value, opportunity cost of points, and how many points you'd earn back paying cash on a specific card. |
+| `estimate_points_earning` | How many points a purchase earns on a given card. Covers 9 cards with bonus category multipliers (3x dining, 5x travel portal, 4x supermarkets, etc.). |
+| `find_sweet_spot_awards` | Curated high-value redemptions: ANA first class via VA miles (16.7cpp), Singapore Suites (16.3cpp), Turkish business (8.9cpp), Hyatt all-inclusive (2.4cpp), and more. Filters by your programs, cabin, budget, or route. |
+| `compare_points_programs` | Which of your points programs gives the best value for a specific booking? Compares estimated points cost, portal vs transfer value, best partner, and matching sweet spots. Uses your profile cards automatically. |
 
 ---
 
@@ -555,6 +581,12 @@ Ranked by a combination of practical impact and uniqueness — things no OTA, no
 | 48 | `get_exchange_rates` | Multi-currency rates from a base currency. |
 | 49 | `geocode` | Place name → latitude/longitude. Used internally by most tools. |
 | 50 | `verify_place` | Confirms a place exists before building a trip around it. Anti-hallucination guardrail. |
+| 51 | `find_sweet_spot_awards` | Curated outsized-value redemptions the points community swears by. ANA first (16.7cpp), Singapore Suites (16.3cpp), Turkish J (8.9cpp). Filtered by your card portfolio. |
+| 52 | `estimate_points_value` | Cents-per-point calculator with verdict against 20+ program baselines. Catches bad redemptions before you burn points. |
+| 53 | `calculate_points_or_cash` | Points or cash? Factors cpp, opportunity cost, and earning-back. The question every points traveler asks on every booking. |
+| 54 | `compare_points_programs` | Which program gives best value for this booking? Cross-program comparison with sweet-spot matching. |
+| 55 | `find_transfer_partners` | Maps bank currency → airline/hotel partners. Transfer ratios, times, and partner valuations. |
+| 56 | `estimate_points_earning` | Points earned per dollar by card and category. 9 cards modeled. |
 
 ---
 
@@ -579,7 +611,7 @@ Ranked by a combination of practical impact and uniqueness — things no OTA, no
 | Eventbrite | Live local events | No |
 | Foursquare Places v3 | Restaurant/bar ratings and price levels | Optional (free tier) |
 | Ticketmaster Discovery | Live event listings | Optional (free tier) |
-| Static datasets | Visa requirements, cost of living, airport data, transit visa rules, SIM card data, Henley rankings | N/A |
+| Static datasets | Visa requirements, cost of living, airport data, transit visa rules, SIM card data, Henley rankings, points/miles valuations | N/A |
 
 ---
 
@@ -634,6 +666,8 @@ Most results carry a `data_meta` block so the AI can tell you how reliable a fig
 **Health data:** Curated snapshot from CDC Yellow Book and WHO 2024–2025 recommendations. Not a substitute for advice from a travel medicine clinic.
 
 **Ground transport:** Rome2Rio data for route discovery. Actual prices and schedules must be confirmed on the booking sites — times and fares change.
+
+**Points/miles valuations:** Baseline cpp values are editorial averages (TPG, NerdWallet, OMAAT). Actual redemption value depends on specific award availability, transfer bonuses, and dynamic pricing. Sweet spot awards assume saver-level availability. Card bonus categories reflect terms as of 2025-Q1 — issuers change these periodically.
 
 **Carbon calculations:** ICAO/DEFRA 2024 emission factors with standard RFI multiplier (×1.9). Actual emissions vary by aircraft type, load factor, and routing. Use as an estimate, not an accounting figure.
 
