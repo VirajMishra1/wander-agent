@@ -26,4 +26,4 @@ jobs:
         run: |
           count=$(grep -c "@mcp.tool()" src/wander_agent/server.py)
           echo "registered tools: $count"
-          test "$count" -eq 60
+          test "$count" -eq 66

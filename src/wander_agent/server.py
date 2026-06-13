@@ -101,6 +101,16 @@ from .tools.fare_watch import (
 )
 from .tools.value_rank import rank_trip_options
 
+# Credit card points/miles
+from .tools.points import (
+    estimate_points_value,
+    find_transfer_partners,
+    calculate_points_or_cash,
+    estimate_points_earning,
+    find_sweet_spot_awards,
+    compare_points_programs,
+)
+
 from .utils.freshness import stamp
 
 
@@ -177,6 +187,15 @@ mcp = FastMCP(
         "If a price is too high or the traveler is undecided, offer watch_fare with a "
         "target_price. Later call check_fare_watches to re-price and surface target_hit / "
         "price_drop buy signals first.\n\n"
+
+        "== CREDIT CARD POINTS ==\n"
+        "If the traveler has cards in their profile, automatically check points value "
+        "on flight/hotel bookings. Use estimate_points_value to judge if an award "
+        "redemption is worth it. Use find_transfer_partners to show which airlines/"
+        "hotels they can transfer to. Use find_sweet_spot_awards proactively — if they "
+        "have Chase UR and are going to Japan, mention ANA first class via Virgin Atlantic. "
+        "When comparing cash vs points, use calculate_points_or_cash. "
+        "compare_points_programs answers 'which of my cards gives best value here?'\n\n"
 
         "== VALUE, NOT JUST PRICE ==\n"
         "When comparing 2+ flight/trip options, call rank_trip_options. The cheapest fare "
@@ -849,12 +868,16 @@ async def tool_update_traveler_profile(
     visas_held: str | None = None,
     eta_held: str | None = None,
     add_visa: str | None = None,
+    add_card: str | None = None,
+    add_card_nickname: str | None = None,
+    add_card_balance: int | None = None,
+    remove_card: str | None = None,
     add_trip_destination: str | None = None,
     add_trip_from: str | None = None,
     add_trip_to: str | None = None,
     add_trip_purpose: str = "tourism",
 ) -> dict:
-    """Update profile fields or log a completed trip. Pass only what changed.
+    """Update profile fields, manage cards, or log a trip. Pass only what changed.
 
     Args:
         name: Update name
@@ -868,6 +891,10 @@ async def tool_update_traveler_profile(
         visas_held: Replace full visa list (comma-separated ISO-2 dest codes)
         eta_held: Replace ETA list
         add_visa: Append one ISO-2 dest code to visas_held
+        add_card: Card key to add (e.g., "chase_sapphire_reserve", "amex_gold", "bilt_mastercard")
+        add_card_nickname: Optional nickname for the card
+        add_card_balance: Current points balance on this card's program
+        remove_card: Card key to remove from portfolio
         add_trip_destination: Log a trip — destination name
         add_trip_from: Trip start YYYY-MM-DD
         add_trip_to: Trip end YYYY-MM-DD
@@ -876,7 +903,8 @@ async def tool_update_traveler_profile(
     return await update_traveler_profile(
         name, home_airports, passports, home_currency, travel_style,
         interests, dietary, preferred_cabin, visas_held, eta_held,
-        add_visa, add_trip_destination, add_trip_from, add_trip_to, add_trip_purpose,
+        add_visa, add_card, add_card_nickname, add_card_balance, remove_card,
+        add_trip_destination, add_trip_from, add_trip_to, add_trip_purpose,
     )
 
 
@@ -1546,6 +1574,137 @@ async def tool_rank_trip_options(
         currency: Display currency
     """
     return await rank_trip_options(options_json, priority, currency)
+
+
+# ============================================================
+# CREDIT CARD POINTS / MILES
+# ============================================================
+
+@mcp.tool()
+async def tool_estimate_points_value(
+    points_cost: int,
+    cash_price: float,
+    program: str,
+    currency: str = "USD",
+    taxes_fees: float = 0.0,
+) -> dict:
+    """Is this award booking a good deal? Calculate cents-per-point and compare
+    against baseline valuations for 20+ programs (Chase UR, Amex MR, airline miles,
+    hotel points). Returns verdict: excellent/good/fair/poor.
+
+    Args:
+        points_cost: Points/miles required for the award booking
+        cash_price: What the same booking costs in cash
+        program: Points program (e.g., "chase_ur", "amex_mr", "united_mp", "hyatt_woh")
+        currency: Cash price currency
+        taxes_fees: Taxes/fees still paid in cash on the award (e.g., fuel surcharges)
+    """
+    return await estimate_points_value(points_cost, cash_price, program, currency, taxes_fees)
+
+
+@mcp.tool()
+async def tool_find_transfer_partners(
+    program: str,
+) -> dict:
+    """Show all airline and hotel transfer partners for a bank points program.
+
+    Maps Chase UR → United, Hyatt, BA, etc. Amex MR → Delta, ANA, Hilton, etc.
+    Includes transfer ratios and transfer times. Sorted by partner value.
+
+    Args:
+        program: Bank program key (e.g., "chase_ur", "amex_mr", "citi_typ", "capital_one", "bilt")
+    """
+    return await find_transfer_partners(program)
+
+
+@mcp.tool()
+async def tool_calculate_points_or_cash(
+    cash_price: float,
+    points_price: int,
+    program: str,
+    category: str | None = None,
+    card_key: str | None = None,
+    currency: str = "USD",
+    taxes_fees_on_award: float = 0.0,
+) -> dict:
+    """Should I pay cash or use points? Factors in cpp value, opportunity cost,
+    and points-back earning on the cash payment. Returns a clear recommendation.
+
+    Args:
+        cash_price: Cash price for the booking
+        points_price: Points/miles price for the same booking
+        program: Points program (e.g., "chase_ur", "united_mp")
+        category: Spending category if paying cash (e.g., "travel", "dining") — affects earning calc
+        card_key: Specific card to calculate earning (e.g., "chase_sapphire_reserve")
+        currency: Cash price currency
+        taxes_fees_on_award: Cash taxes/fees on the award redemption
+    """
+    return await calculate_points_or_cash(cash_price, points_price, program, category, card_key, currency, taxes_fees_on_award)
+
+
+@mcp.tool()
+async def tool_estimate_points_earning(
+    amount: float,
+    card_key: str,
+    category: str = "general",
+    currency: str = "USD",
+) -> dict:
+    """How many points will I earn on this purchase? Covers 9 popular cards with
+    bonus category multipliers (3x dining, 5x travel, etc.).
+
+    Args:
+        amount: Purchase amount in dollars
+        card_key: Card identifier (e.g., "chase_sapphire_reserve", "amex_gold", "bilt_mastercard")
+        category: Spending category (dining, travel, flights, restaurants, supermarkets, rent, etc.)
+        currency: Purchase currency
+    """
+    return await estimate_points_earning(amount, card_key, category, currency)
+
+
+@mcp.tool()
+async def tool_find_sweet_spot_awards(
+    programs: str | None = None,
+    cabin: str | None = None,
+    max_points: int | None = None,
+    route_keyword: str | None = None,
+) -> dict:
+    """Curated list of the best-value award redemptions in the points game.
+
+    ANA first class for 120k VA miles (16.7cpp), Hyatt all-inclusive for 25k (2.4cpp),
+    Turkish J to Europe for 45k (8.9cpp), Singapore Suites for 92k (16.3cpp), and more.
+    Filters by your programs, cabin class, budget, or route.
+
+    Args:
+        programs: Comma-separated program keys (e.g., "chase_ur,amex_mr") — omit to use profile cards
+        cabin: Filter by cabin (economy, business, first, suites, hotel)
+        max_points: Only show awards under this points threshold
+        route_keyword: Filter by route (e.g., "Japan", "Europe", "Caribbean")
+    """
+    return await find_sweet_spot_awards(programs, cabin, max_points, route_keyword)
+
+
+@mcp.tool()
+async def tool_compare_points_programs(
+    cash_price: float,
+    programs: str | None = None,
+    cabin: str = "economy",
+    route: str | None = None,
+    currency: str = "USD",
+) -> dict:
+    """Which of my points programs gives the best value for this booking?
+
+    Compares estimated points cost across programs, portal vs transfer value,
+    best transfer partner, and matching sweet spots. Uses profile cards if no
+    programs specified.
+
+    Args:
+        cash_price: What the booking costs in cash
+        programs: Comma-separated (e.g., "chase_ur,amex_mr") — omit to use profile cards
+        cabin: Target cabin class (economy, business, first)
+        route: Route keyword to match sweet spots (e.g., "Japan", "Europe")
+        currency: Cash price currency
+    """
+    return await compare_points_programs(cash_price, programs, cabin, route, currency)
 
 
 def main():
