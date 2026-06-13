@@ -68,6 +68,12 @@ EXPECTED_TOOLS = [
     "tool_check_fare_watches",
     "tool_stop_fare_watch",
     "tool_rank_trip_options",
+    "tool_estimate_points_value",
+    "tool_find_transfer_partners",
+    "tool_calculate_points_or_cash",
+    "tool_estimate_points_earning",
+    "tool_find_sweet_spot_awards",
+    "tool_compare_points_programs",
 ]
 
 

@@ -225,6 +225,10 @@ async def update_traveler_profile(
     visas_held: str | None = None,
     eta_held: str | None = None,
     add_visa: str | None = None,
+    add_card: str | None = None,
+    add_card_nickname: str | None = None,
+    add_card_balance: int | None = None,
+    remove_card: str | None = None,
     add_trip_destination: str | None = None,
     add_trip_from: str | None = None,
     add_trip_to: str | None = None,
@@ -232,8 +236,8 @@ async def update_traveler_profile(
 ) -> dict:
     """Update one or more fields in the stored traveler profile.
 
-    Pass only the fields you want to change. Use add_visa / add_trip_* to
-    append without replacing the full list.
+    Pass only the fields you want to change. Use add_visa / add_trip_* / add_card
+    to append without replacing the full list.
 
     Args:
         name: Update name
@@ -247,6 +251,10 @@ async def update_traveler_profile(
         visas_held: Replace full visa list (comma-separated ISO-2 dest codes)
         eta_held: Replace ETA list
         add_visa: Append one ISO-2 destination code to visas_held
+        add_card: Card key to add (e.g., "chase_sapphire_reserve", "amex_gold", "bilt_mastercard")
+        add_card_nickname: Optional nickname for the card
+        add_card_balance: Current points balance on this card's program
+        remove_card: Card key to remove from portfolio
         add_trip_destination: Log a trip — city/country (e.g., "Tokyo, Japan")
         add_trip_from: Trip start date YYYY-MM-DD
         add_trip_to: Trip end date YYYY-MM-DD
@@ -299,6 +307,38 @@ async def update_traveler_profile(
             existing.append(code)
         profile["visas_held"] = existing
         changed.append(f"visas_held (added {code})")
+
+    if add_card:
+        from ..data.points_data import CARDS
+        card_key = add_card.lower().replace(" ", "_").replace("-", "_")
+        cards: list[dict] = profile.get("cards") or []
+        if any(c.get("card_key") == card_key for c in cards):
+            for c in cards:
+                if c["card_key"] == card_key:
+                    if add_card_balance is not None:
+                        c["balance"] = add_card_balance
+                    if add_card_nickname:
+                        c["nickname"] = add_card_nickname
+            changed.append(f"cards (updated {card_key})")
+        else:
+            card_info = CARDS.get(card_key, {})
+            entry: dict[str, Any] = {
+                "card_key": card_key,
+                "program": card_info.get("program", "unknown"),
+            }
+            if add_card_nickname:
+                entry["nickname"] = add_card_nickname
+            if add_card_balance is not None:
+                entry["balance"] = add_card_balance
+            cards.append(entry)
+            changed.append(f"cards (added {card_key})")
+        profile["cards"] = cards
+
+    if remove_card:
+        card_key = remove_card.lower().replace(" ", "_").replace("-", "_")
+        cards_list = profile.get("cards") or []
+        profile["cards"] = [c for c in cards_list if c.get("card_key") != card_key]
+        changed.append(f"cards (removed {card_key})")
 
     if add_trip_destination and add_trip_from and add_trip_to:
         save_profile(profile)

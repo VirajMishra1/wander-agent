@@ -39,6 +39,8 @@ _DEFAULT_PROFILE: dict[str, Any] = {
     "eta_held": [],             # ESTA, eTA, UK ETA, NZ ETA etc.
     # Trip history
     "past_trips": [],           # [{destination, from, to, purpose, logged_at}]
+    # Credit card points portfolio
+    "cards": [],                # [{card_key, program, nickname, balance}]
     # Loyalty programs
     "loyalty": [],              # [{airline, program, tier}]
     # Onboarding state
