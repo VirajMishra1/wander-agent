@@ -6,7 +6,7 @@
 
 Ask your AI anything about travel — flights, hotels, visas, weather, safety, local food, packing lists — and get real data back, not hallucinations.
 
-[![CI](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/VirajMishra1/wander-agent/blob/main/LICENSE) [![wander-agent MCP server](https://glama.ai/mcp/servers/VirajMishra1/wander-agent/badges/card.svg)](https://glama.ai/mcp/servers/VirajMishra1/wander-agent)
+[![CI](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/VirajMishra1/wander-agent/blob/main/LICENSE) [![wander-agent MCP server](https://glama.ai/mcp/servers/VirajMishra1/wander-agent/badges/score.svg)](https://glama.ai/mcp/servers/VirajMishra1/wander-agent)
 
 [See the launch demo](https://x.com/virajm1shra/status/2059930318359109965)
 
