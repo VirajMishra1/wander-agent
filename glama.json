@@ -1,0 +1,12 @@
+{
+  "$schema": "https://glama.ai/schemas/glama.json",
+  "maintainers": ["VirajMishra1"],
+  "title": "wander-agent",
+  "description": "Personal travel agent MCP server with 66 tools — flights, hotels, visa checks, itinerary planning, weather, travel advisories, currency conversion, passport power index, and credit card points/miles optimization. No API keys required.",
+  "tags": ["travel", "flights", "hotels", "visa", "itinerary", "weather", "currency", "points", "miles", "passport", "mcp", "travel-agent"],
+  "repository": "https://github.com/VirajMishra1/wander-agent",
+  "license": "MIT",
+  "categories": ["travel-and-transportation"],
+  "language": "Python",
+  "runtime": "python"
+}
