@@ -338,19 +338,26 @@ async def tool_search_flights(
     currency: str = "USD",
     nonstop_only: bool = False,
 ) -> dict:
-    """PLANNING: Search flights between two airports.
+    """Search live flight prices between two airports using Google Flights data.
 
-    Uses Google Flights data through fast_flights. No API key required.
+    Read-only. No auth required. No rate limits enforced. Data freshness: scraped
+    live at call time; prices may shift minute-to-minute. Returns a list of flight
+    options each with price, stops, duration, airline, and booking deeplink.
+
+    Use this when the user wants to compare specific flight options for a known
+    origin-destination pair. Use tool_fare_calendar instead when dates are flexible.
+    Use tool_find_cheapest_month for month-level planning. Use tool_cheap_anywhere_from
+    when the destination is open. Use tool_optimize_budget to bundle flights + hotels.
 
     Args:
         origin: IATA airport code (e.g., "JFK", "LAX", "LHR")
         destination: IATA airport code (e.g., "CDG", "NRT", "SYD")
         departure_date: YYYY-MM-DD
         return_date: YYYY-MM-DD (omit for one-way)
-        adults: 1-9
-        max_results: Max results
-        currency: USD, EUR, GBP, etc.
-        nonstop_only: Nonstop only
+        adults: Number of passengers, 1-9
+        max_results: Max flight options to return (1-20)
+        currency: ISO currency code — USD, EUR, GBP, INR, etc.
+        nonstop_only: True to exclude connecting flights
     """
     return await search_flights(origin, destination, departure_date, return_date,
                                  adults, max_results, currency, nonstop_only)
@@ -425,17 +432,25 @@ async def tool_optimize_budget(
     flexible_dates: bool = True,
     flexibility_days: int = 3,
 ) -> dict:
-    """PLANNING: Find cheapest flight + hotel combo with flexible dates.
+    """Find the cheapest flight + hotel combination across flexible date windows.
+
+    Read-only. No auth required. Scrapes Google Flights and Hotels live; prices
+    are indicative and may shift. Returns ranked date combinations each with total
+    cost (flights + estimated hotel), per-person breakdown, and booking deeplinks.
+
+    Use this when the user wants the lowest total trip cost and can shift dates by
+    a few days. Use tool_search_flights for fixed-date flight-only search.
+    Use tool_fare_calendar for a full month price grid without hotel bundling.
 
     Args:
-        origin: Departure airport IATA code
-        destination: Arrival airport IATA code
-        departure_date: Preferred YYYY-MM-DD
-        return_date: Preferred YYYY-MM-DD
-        adults: Travelers
-        currency: USD, EUR, etc.
-        flexible_dates: Search nearby dates
-        flexibility_days: Days to flex (1-7)
+        origin: Departure airport IATA code (e.g., "JFK")
+        destination: Arrival airport IATA code (e.g., "CDG")
+        departure_date: Preferred departure YYYY-MM-DD
+        return_date: Preferred return YYYY-MM-DD
+        adults: Number of travelers (affects per-person vs total cost)
+        currency: ISO currency code — USD, EUR, etc.
+        flexible_dates: True to search ±flexibility_days around given dates
+        flexibility_days: Date window to search each side, 1-7
     """
     return await optimize_budget(origin, destination, departure_date, return_date,
                                   adults, currency, flexible_dates, flexibility_days)
@@ -606,14 +621,25 @@ async def tool_search_activities(
     latitude: float, longitude: float, radius_km: int = 10,
     category: str | None = None, max_results: int = 15,
 ) -> dict:
-    """Search activities and attractions near a location.
+    """Search activities and attractions near a GPS coordinate using Wikidata/OpenTripMap.
+
+    Read-only. No auth required. No rate limits. Data source: Wikidata with
+    OpenTripMap fallback — community-curated, not real-time. Returns a list of
+    places each with name, category, coordinates, description, and Wikipedia link
+    where available.
+
+    Use this when you have coordinates (from tool_geocode) and need nearby things
+    to do. Use tool_search_restaurants_bars specifically for dining. Use
+    tool_get_local_events for time-sensitive events like concerts or festivals.
+    Not suitable for business hours or current pricing — those change frequently.
 
     Args:
-        latitude: Latitude
-        longitude: Longitude
-        radius_km: 1-50
-        category: culture, nature, food, shopping, nightlife, architecture, historic, museums, religion, sport
-        max_results: 1-50
+        latitude: Decimal latitude (e.g., 48.8566 for Paris)
+        longitude: Decimal longitude (e.g., 2.3522 for Paris)
+        radius_km: Search radius in km, 1-50
+        category: Filter by type — culture, nature, food, shopping, nightlife,
+            architecture, historic, museums, religion, sport — or omit for all
+        max_results: Max places to return, 1-50
     """
     return stamp(await search_activities(latitude, longitude, radius_km, category, max_results),
                  "wikidata_fallback", source="wikidata")
@@ -647,14 +673,21 @@ async def tool_geocode(place_name: str) -> dict:
 async def tool_verify_place(
     place_name: str, city: str, expected_type: str | None = None,
 ) -> dict:
-    """Verify a place exists. Cross-checks OSM + Foursquare + OpenTripMap.
+    """Verify a named place actually exists by cross-checking OSM, Foursquare, and OpenTripMap.
 
-    Catches AI hallucinations before they reach the user.
+    Read-only. No auth required (Foursquare key optional; degrades gracefully without it).
+    Returns: verified (bool), confidence score, canonical name, coordinates, matched
+    sources, and a warning message if the place appears to be hallucinated.
+
+    Use this before presenting any specific restaurant, hotel, or attraction to the user —
+    especially when the name came from an LLM rather than a live API. Do not use for
+    checking business hours or current availability; this only confirms existence.
+    Use tool_geocode if you only need coordinates for a city or landmark.
 
     Args:
-        place_name: Place name (e.g., "Eiffel Tower")
-        city: City (e.g., "Paris")
-        expected_type: restaurant, attraction, hotel, museum, park
+        place_name: Place name to verify (e.g., "Eiffel Tower", "Nobu Tokyo")
+        city: City context to narrow the search (e.g., "Paris", "Tokyo")
+        expected_type: Optional type hint — restaurant, attraction, hotel, museum, park
     """
     return await verify_place(place_name, city, expected_type)
 
@@ -710,19 +743,26 @@ async def tool_multi_origin_meetup(
     currency: str = "USD",
     regions: str | None = None,
 ) -> dict:
-    """KILLER: Find cheapest meeting point for travelers from N different cities.
+    """Find the cheapest city for a group of travelers flying from different origins to meet.
 
-    "3 friends in SF, London, Tokyo - cheapest weekend they can all meet."
-    No OTA does this. Math is combinatorial — we loop curated destinations
-    and sum round-trip costs per traveler.
+    Read-only. No auth required. Scrapes Google Flights live for each origin-destination
+    pair; results are indicative. Returns a ranked list of meeting cities each with
+    total group cost, per-traveler cost breakdown, and individual flight details.
+    Combinatorial search — response time scales with number of origins × candidates.
+
+    Use this when multiple travelers in different cities need to meet and want to
+    minimize total group flight spend. Use tool_search_flights for single-origin
+    itineraries. Use tool_optimize_budget when origin and destination are fixed.
 
     Args:
-        origins: Comma-separated IATA codes (e.g., "JFK,LHR,NRT")
-        departure_date: YYYY-MM-DD
-        return_date: YYYY-MM-DD
-        max_results: max destinations to return
-        currency: USD, EUR, etc.
-        regions: limit candidates (e.g., "europe,asia")
+        origins: Comma-separated IATA codes for each traveler's departure city
+            (e.g., "JFK,LHR,NRT" for New York, London, Tokyo)
+        departure_date: YYYY-MM-DD shared departure date
+        return_date: YYYY-MM-DD shared return date
+        max_results: Max candidate meeting cities to return (1-20)
+        currency: ISO currency code for price display — USD, EUR, etc.
+        regions: Comma-separated region filter to narrow candidates —
+            europe, asia, americas, middleeast, africa (omit for global)
     """
     return await multi_origin_meetup(origins, departure_date, return_date, max_results, currency, regions)
 
@@ -758,14 +798,22 @@ async def tool_find_mistake_fares(
     days_lookback: int = 14,
     max_results: int = 20,
 ) -> dict:
-    """KILLER: Recent mistake fares + deal alerts from Secret Flying + Flight Deal RSS.
+    """Fetch recent mistake fares and deal alerts from Secret Flying and Flight Deal RSS feeds.
 
-    The signal Going.com charges $49/yr for, free.
+    Read-only. No auth required. Data freshness: RSS feeds polled at call time,
+    posts typically 1-48 hours old. Returns a list of deals each with origin,
+    destination, price, sale price, percentage discount, source, and post date.
+    Does not book or hold fares — prices expire fast, often within hours.
+
+    Use this when the user wants passive deal discovery without a fixed destination.
+    Use tool_search_flights when the user has a specific route and date in mind.
+    Use tool_fare_calendar for flexible-date price grids on a known route.
 
     Args:
-        origin: City name filter (e.g., "New York") or omit for all
-        days_lookback: Only posts from last N days
-        max_results: max deals
+        origin: City name to filter deals by departure city (e.g., "New York",
+            "London") — omit to return deals from all origins
+        days_lookback: Include only posts published in the last N days (1-30)
+        max_results: Max deals to return (1-50)
     """
     return await find_mistake_fares(origin, days_lookback, max_results)
 
@@ -775,16 +823,21 @@ async def tool_check_visa_requirement(
     passport_country: str,
     destination_country: str,
 ) -> dict:
-    """KILLER: Check visa requirements (counters viral AI-fail ESTA incidents).
+    """Check the visa requirement for one passport entering one destination country.
 
-    Returns category (visa_free, eta_required, visa_on_arrival, evisa,
-    visa_required) plus guidance. Direct response to the Mery Caldass
-    incident where ChatGPT told a traveler she didn't need ESTA -
-    she got denied boarding (millions of views).
+    Read-only. No auth required. Data source: built-in curated dataset (static
+    snapshot — regulations change; always verify with the official embassy before travel).
+    Returns: category (visa_free / eta_required / visa_on_arrival / evisa /
+    visa_required), apply_link, estimated cost, processing time, and guidance notes.
+    Invalid ISO codes return an error field, not an exception.
+
+    Use this for a single passport-destination pair. Use tool_visa_free_destinations
+    to list all countries a passport can enter. Use tool_check_transit_visa specifically
+    for layover/transit visa requirements, not entry visas.
 
     Args:
-        passport_country: ISO 2-letter (e.g., "US", "GB", "IN")
-        destination_country: ISO 2-letter (e.g., "JP", "TH")
+        passport_country: ISO 2-letter passport country code (e.g., "US", "GB", "IN")
+        destination_country: ISO 2-letter destination country code (e.g., "JP", "TH", "BR")
     """
     return stamp(await check_visa_requirement(passport_country, destination_country),
                  "curated_snapshot", source="built-in visa dataset")
@@ -795,13 +848,21 @@ async def tool_visa_free_destinations(
     passport_country: str,
     include_categories: str = "visa_free,visa_on_arrival,evisa,eta_required",
 ) -> dict:
-    """KILLER: All destinations a passport can enter without a traditional visa.
+    """List all countries a passport can enter without a traditional pre-arranged visa.
 
-    "I'm Indian passport, show every country I can fly to with e-visa or visa-on-arrival."
+    Read-only. No auth required. Data source: built-in curated dataset (static snapshot —
+    verify with official embassy before travel). Returns a list of countries each with
+    entry category, apply link, and notes. Invalid passport codes return an empty list.
+    Territories and disputed regions may not be included.
+
+    Use this for broad destination discovery ("where can I go without a visa?").
+    Use tool_check_visa_requirement for a precise single-pair lookup.
+    Use tool_check_transit_visa for transit/layover visa checks, not entry.
 
     Args:
-        passport_country: ISO 2-letter code
-        include_categories: Comma-separated category filter
+        passport_country: ISO 2-letter passport country code (e.g., "IN", "BR", "ZA")
+        include_categories: Comma-separated filter — valid values: visa_free,
+            visa_on_arrival, evisa, eta_required (default includes all four)
     """
     return stamp(await visa_free_destinations(passport_country, include_categories),
                  "curated_snapshot", source="built-in visa dataset")
@@ -1124,15 +1185,23 @@ async def tool_get_stopover_guide(
     layover_hours: float,
     passport_country: str | None = None,
 ) -> dict:
-    """What to do during a layover at a major hub airport.
+    """Get a layover activity guide for a major hub airport.
 
-    Covers in-terminal activities, city excursions, and transit visa info
-    for IST, DXB, SIN, DOH, NRT, HND, CDG, HKG, ICN, AMS.
+    Read-only. No auth required. Data source: built-in curated dataset for 10 hubs:
+    IST, DXB, SIN, DOH, NRT, HND, CDG, HKG, ICN, AMS. Returns in-terminal activities,
+    city excursion options (only suggested when layover_hours is sufficient for safe
+    exit/re-entry), and transit visa status for the given passport. Unsupported airports
+    return an error field with a list of supported IATA codes.
+
+    Use this when the user has a confirmed layover and wants to make use of the time.
+    Use tool_check_transit_visa for a standalone transit visa check without activity content.
+    Do not use for airports not in the supported list above.
 
     Args:
-        airport: IATA code (e.g., "DXB", "SIN", "IST")
-        layover_hours: Total layover duration in hours
-        passport_country: ISO-2 code for transit visa check (e.g., "IN", "US")
+        airport: IATA code of the layover airport (e.g., "DXB", "SIN", "IST")
+        layover_hours: Total available layover time in decimal hours (e.g., 4.5)
+        passport_country: ISO-2 passport code for transit visa check (e.g., "IN", "US") —
+            omit to skip visa check
     """
     return await get_stopover_guide(airport, layover_hours, passport_country)
 
@@ -1503,16 +1572,25 @@ async def tool_watch_fare(
     currency: str = "USD",
     target_price: float | None = None,
 ) -> dict:
-    """Start watching a flight route. Records a baseline price and a target to alert at.
+    """Create a fare watch that records a baseline price and alerts when a target is hit.
+
+    Writes to local profile store (~/.wander_agent/). No external auth required.
+    Returns the created watch_id, baseline price fetched at creation time, and
+    target_price (auto-set to 10% below baseline if not specified). The watch is
+    passive — prices are only re-checked when tool_check_fare_watches is called.
+
+    Use this to begin monitoring a route. Use tool_check_fare_watches to poll for
+    price changes. Use tool_list_fare_watches to see all active watches.
+    Use tool_stop_fare_watch to pause or delete a watch when no longer needed.
 
     Args:
-        origin: IATA
-        destination: IATA
-        depart_date: YYYY-MM-DD
-        return_date: YYYY-MM-DD for round trip
-        adults: Passengers
-        currency: USD/EUR/etc
-        target_price: Alert when price falls to/below this
+        origin: Departure airport IATA code (e.g., "JFK")
+        destination: Arrival airport IATA code (e.g., "LHR")
+        depart_date: YYYY-MM-DD departure date
+        return_date: YYYY-MM-DD return date for round trip; omit for one-way
+        adults: Number of passengers (affects price baseline)
+        currency: ISO currency code — USD, EUR, GBP, etc.
+        target_price: Alert threshold; omit to auto-set at 10% below baseline
     """
     return await watch_fare(origin, destination, depart_date, return_date,
                             adults, currency, target_price)
@@ -1542,11 +1620,20 @@ async def tool_check_fare_watches(watch_id: str | None = None) -> dict:
 
 @mcp.tool()
 async def tool_stop_fare_watch(watch_id: str, delete: bool = False) -> dict:
-    """Pause or delete a fare watch.
+    """Pause or permanently delete a fare watch by its ID.
+
+    Writes to local profile store (~/.wander_agent/). No external auth required.
+    Returns the updated watch record. Pausing (delete=False) keeps history but
+    stops the watch from being checked by tool_check_fare_watches. Deleting
+    (delete=True) removes it permanently with no recovery.
+
+    Use this when the user has booked the flight or no longer needs the alert.
+    Use tool_list_fare_watches to find the watch_id if unknown.
+    Use tool_check_fare_watches to re-price before deciding to stop.
 
     Args:
-        watch_id: Watch id
-        delete: True deletes; False just pauses
+        watch_id: ID of the watch to stop (from tool_list_fare_watches or tool_watch_fare)
+        delete: False to pause (reversible); True to delete permanently
     """
     return await stop_fare_watch(watch_id, delete)
 
@@ -1649,14 +1736,25 @@ async def tool_estimate_points_earning(
     category: str = "general",
     currency: str = "USD",
 ) -> dict:
-    """How many points will I earn on this purchase? Covers 9 popular cards with
-    bonus category multipliers (3x dining, 5x travel, etc.).
+    """Calculate points earned on a purchase for a specific credit card and spending category.
+
+    Read-only. No auth required. Uses static bonus multiplier data (standard published
+    rates; does not reflect temporary promotions). Returns: points_earned, base_earn_rate,
+    applied_multiplier, program name, and estimated_value_usd at mid-range cpp.
+    Supports 9 cards: chase_sapphire_reserve, chase_sapphire_preferred, amex_platinum,
+    amex_gold, capital_one_venture_x, citi_premier, bilt_mastercard, ink_preferred,
+    amex_green.
+
+    Use this when the user wants to know which card to swipe for a specific purchase.
+    Use tool_calculate_points_or_cash to decide whether to pay cash or redeem points.
+    Use tool_estimate_points_value to evaluate a specific award booking's cpp.
 
     Args:
-        amount: Purchase amount in dollars
-        card_key: Card identifier (e.g., "chase_sapphire_reserve", "amex_gold", "bilt_mastercard")
-        category: Spending category (dining, travel, flights, restaurants, supermarkets, rent, etc.)
-        currency: Purchase currency
+        amount: Purchase amount (in the specified currency)
+        card_key: Card identifier — chase_sapphire_reserve, amex_gold, bilt_mastercard, etc.
+        category: Spending category — dining, travel, flights, restaurants,
+            supermarkets, rent, general (default: general)
+        currency: ISO currency code of the purchase (e.g., "USD", "EUR")
     """
     return await estimate_points_earning(amount, card_key, category, currency)
 
