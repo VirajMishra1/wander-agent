@@ -17,6 +17,12 @@ pip install wander-agent
 
 [See the launch demo](https://x.com/virajm1shra/status/2059930318359109965)  ·  **⭐ Star this repo if it saves you a layover ✈️**
 
+<br/>
+
+![Wander Agent finding hidden-city and split-ticket fares the airlines hide](demo/hero.gif)
+
+<sub><em>Real run: asked for "every way to save money on DXB→DPS for 4" — it surfaced hidden-city, split-ticket, and nearby-airport fares for ~$8,000 group savings.</em></sub>
+
 </div>
 
 ---
