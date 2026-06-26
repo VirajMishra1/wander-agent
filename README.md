@@ -2,15 +2,31 @@
 
 # 🌍 Wander Agent
 
-**A travel planning AI with 66 tools, zero API keys required.**
+### Your AI's personal travel agent — flights, hotels, visas, points & miles.
+**66 tools. Zero API keys. One line to install.**
 
-Ask your AI anything about travel — flights, hotels, visas, weather, safety, local food, packing lists — and get real data back, not hallucinations.
+Ask your AI anything about travel and get **real data back, not hallucinations** — live flight prices, the cheap fares airlines hide, real visa rules, 16-day forecasts, and credit-card points sweet spots.
+
+```bash
+pip install wander-agent
+```
+
+[![PyPI](https://img.shields.io/pypi/v/wander-agent?color=blue&label=pypi)](https://pypi.org/project/wander-agent/) [![Downloads](https://img.shields.io/pypi/dm/wander-agent?color=blue&label=downloads)](https://pypi.org/project/wander-agent/) [![Stars](https://img.shields.io/github/stars/VirajMishra1/wander-agent?style=flat&color=yellow)](https://github.com/VirajMishra1/wander-agent/stargazers)
 
 [![CI](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/VirajMishra1/wander-agent/actions/workflows/ci.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/) [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://modelcontextprotocol.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/VirajMishra1/wander-agent/blob/main/LICENSE) [![wander-agent MCP server](https://glama.ai/mcp/servers/VirajMishra1/wander-agent/badges/score.svg)](https://glama.ai/mcp/servers/VirajMishra1/wander-agent)
 
-[See the launch demo](https://x.com/virajm1shra/status/2059930318359109965)
+[See the launch demo](https://x.com/virajm1shra/status/2059930318359109965)  ·  **⭐ Star this repo if it saves you a layover ✈️**
 
 </div>
+
+---
+
+> **Try these the second you install** — paste any of them to your AI:
+>
+> - 🛫 *"Find me a flight from NYC to Tokyo the airlines don't want me to see."* → hidden-city + split-ticket fares OTAs are banned from showing you
+> - 🌴 *"Plan a 10-day Bali trip for 2 from Dubai in September, budget $3,000."* → flights, hotels, visa, weather, restaurants, packing list, day-by-day — one response
+> - 🛂 *"Which of my two passports gets me into more countries visa-free?"* → dual-passport diff with Henley rankings
+> - 💳 *"Turn my Amex points into the best business-class flight to Europe."* → points sweet-spot finder across transfer partners
 
 ---
 
