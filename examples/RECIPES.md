@@ -62,6 +62,34 @@ Composes cheap-anywhere search + destination scoring (cost + weather + safety + 
 
 ---
 
+## 🏥 Health & vaccines
+
+> *"What vaccines do I need for a 3-week backpacking trip through Cambodia and Vietnam?"*
+
+Health data from CDC/WHO — required vaccines, recommended shots, water safety, mosquito risk, and a preparation timeline.
+
+> *"Is the tap water safe in [city]?"*
+
+---
+
+## ✈️ Stopovers & layovers
+
+> *"I have an 8-hour layover in Istanbul on a US passport. Can I leave the airport?"*
+
+Transit visa check + time-budgeted guide: what to do in-airport vs a city excursion, with transport options and re-check-in buffers.
+
+> *"What should I do with a 5-hour layover at Changi?"*
+
+---
+
+## 🗣️ Language survival kit
+
+> *"Teach me the 20 phrases I need for a week in Tokyo — with pronunciation."*
+
+Phrasebook with romanized pronunciation, grouped by category (greetings, food, transport, emergencies).
+
+---
+
 ## ⚠️ Is it safe / smart to go?
 
 > *"Is it safe to travel to [country] right now? Give me the advisory level, weather, and any recent travel news."*

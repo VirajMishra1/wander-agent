@@ -286,6 +286,25 @@ NEARBY_AIRPORTS: dict[str, list[str]] = {
     "AEP": ["EZE"],
     "MEX": ["NLU"],
     "NLU": ["MEX"],
+    # Taipei
+    "TPE": ["TSA"],
+    "TSA": ["TPE"],
+    # Jakarta
+    "CGK": ["HLP"],
+    "HLP": ["CGK"],
+    # Johannesburg
+    "JNB": ["HLA"],
+    "HLA": ["JNB"],
+    # Manila
+    "MNL": ["CRK"],
+    # Melbourne
+    "MEL": ["AVV"],
+    # Sydney
+    "SYD": ["WSI"],
+    # Singapore (Changi only, but Johor Bahru across border)
+    # Lisbon
+    # Denver (DEN only)
+    # Berlin (BER only)
 }
 
 
