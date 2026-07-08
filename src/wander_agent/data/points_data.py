@@ -202,6 +202,16 @@ PROGRAM_VALUATIONS: dict[str, dict] = {
         "cpp_high": 1.0,
         "notes": "4th night free. Points + Cash can be decent value.",
     },
+    "wells_fargo_rewards": {
+        "name": "Wells Fargo Rewards",
+        "issuer": "Wells Fargo",
+        "currency": "Wells Fargo rewards points",
+        "cpp_low": 1.0,
+        "cpp_mid": 1.0,
+        "cpp_high": 1.0,
+        "cpp_portal": 1.0,
+        "notes": "Fixed 1cpp value. No transfer partners — portal or statement credit only.",
+    },
 }
 
 # ── Transfer partners ──────────────────────────────────────────────
@@ -381,6 +391,51 @@ CARDS: dict[str, dict] = {
         },
         "sign_up_bonus": 0,
         "notes": "No AF. Only card that earns points on rent with no fees.",
+    },
+    "chase_ink_preferred": {
+        "name": "Chase Ink Business Preferred",
+        "program": "chase_ur",
+        "annual_fee": 95,
+        "base_earn": 1,
+        "bonus_categories": {
+            "travel": 3,
+            "shipping": 3,
+            "internet_cable_phone": 3,
+            "advertising_social_media": 3,
+        },
+        "sign_up_bonus": 100000,
+        "portal_multiplier": 1.25,
+        "notes": "100k SUB is one of the biggest. Pairs with CSR for 1.5cpp portal redemptions.",
+    },
+    "amex_hilton_surpass": {
+        "name": "Amex Hilton Honors Surpass",
+        "program": "hilton_honors",
+        "annual_fee": 150,
+        "base_earn": 3,
+        "bonus_categories": {
+            "hilton": 12,
+            "restaurants": 6,
+            "us_supermarkets": 6,
+            "gas": 6,
+        },
+        "sign_up_bonus": 130000,
+        "notes": "Auto Gold status. Spend $15k → Diamond. Weekend night reward at $15k spend.",
+    },
+    "wells_fargo_autograph": {
+        "name": "Wells Fargo Autograph",
+        "program": "wells_fargo_rewards",
+        "annual_fee": 0,
+        "base_earn": 1,
+        "bonus_categories": {
+            "restaurants": 3,
+            "travel": 3,
+            "gas": 3,
+            "transit": 3,
+            "streaming": 3,
+            "phone_plans": 3,
+        },
+        "sign_up_bonus": 20000,
+        "notes": "No AF. 3x on 6 categories. No transfer partners — portal redemptions only at 1cpp.",
     },
 }
 

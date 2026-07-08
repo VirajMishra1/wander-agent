@@ -40,8 +40,9 @@ async def get_cost_of_living(
     if not cost:
         return {
             "city": city,
-            "error": f"No cost data for '{city}'. Dataset covers 100+ major destinations.",
+            "error": f"No cost data for '{city}'.",
             "hint": "Try a major nearby city (e.g., 'Barcelona' instead of small village)",
+            "suggest_web_search": [f"{city} daily travel budget 2026", f"cost of living {city} for tourists"],
         }
 
     budget_usd = cost["daily_budget_usd"]
@@ -80,9 +81,20 @@ async def get_cost_of_living(
             },
         },
         "in_local_currency": converted,
+        "data_confidence": {
+            "city": "curated_snapshot",
+            "country_fallback": "country_average",
+            "regional_estimate": "regional_estimate",
+        }.get(cost["match_type"], "curated_snapshot"),
         "source": "Curated from public aggregators (Numbeo, Budget Your Trip, Expatistan)",
         "snapshot_year": 2026,
     }
+
+    if cost["match_type"] == "regional_estimate":
+        result["accuracy_warning"] = (
+            f"No city or country data for '{city}'. "
+            f"Using {cost['matched_name']} regional average — treat as rough estimate only."
+        )
 
     if trip_days and trip_days > 0:
         result["trip_total_estimates_usd"] = {
