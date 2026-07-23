@@ -25,7 +25,7 @@ dependencies = [
     "httpx>=0.28",
     "python-dotenv>=1.0",
     "pydantic>=2.0",
-    "fast-flights>=2.2",
+    "fast-flights>=2.2,<3",
     "primp>=0.15.0,<1.0",
     "fast-hotels>=0.2.1",
 ]
@@ -48,6 +48,7 @@ Issues = "https://github.com/VirajMishra1/wander-agent/issues"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["smoke: live network smoke tests (deselect with -m 'not smoke')"]
 
 [build-system]
 requires = ["hatchling"]

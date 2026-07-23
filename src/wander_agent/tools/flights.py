@@ -48,14 +48,28 @@ async def _parse_flight_time(time_str: str, base_date: str) -> str:
     return time_str  # Keep raw — LLM handles natural language fine
 
 
+_CHROME_PROFILES = ("chrome_131", "chrome_130", "chrome_126", "chrome_120")
+
+
 def _patch_fast_flights_impersonate():
-    """Patch fast_flights to use chrome_146 (primp 1.3+ dropped chrome_126)."""
+    """Patch fast_flights to use the newest valid Chrome profile available."""
     try:
         import fast_flights.core as _core
         from fast_flights.primp import Client, Response
 
+        profile = None
+        for p in _CHROME_PROFILES:
+            try:
+                Client(impersonate=p)
+                profile = p
+                break
+            except (RuntimeError, Exception):
+                continue
+        if not profile:
+            return
+
         def _patched_fetch(params: dict) -> Response:
-            client = Client(impersonate="chrome_146", verify=False)
+            client = Client(impersonate=profile, verify=False)
             res = client.get("https://www.google.com/travel/flights", params=params)
             assert res.status_code == 200, f"{res.status_code} Result: {res.text_markdown}"
             return res
