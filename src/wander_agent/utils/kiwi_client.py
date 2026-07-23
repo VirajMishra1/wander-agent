@@ -6,11 +6,12 @@ No API key required. Returns [] on any failure (graceful degradation).
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime
 
 _KIWI_URL = "https://mcp.kiwi.com"
-_TIMEOUT = 12  # seconds
+_TIMEOUT = 20  # seconds
 
 
 def _ymd_to_dmy(date_str: str) -> str:
@@ -52,10 +53,13 @@ async def search_kiwi_flights(
         if return_date:
             params["returnDate"] = _ymd_to_dmy(return_date)
 
-        async with sse_client(_KIWI_URL, timeout=_TIMEOUT) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool("search-flight", params)
+        async def _do_kiwi():
+            async with sse_client(_KIWI_URL, timeout=_TIMEOUT) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    return await session.call_tool("search-flight", params)
+
+        result = await asyncio.wait_for(_do_kiwi(), timeout=_TIMEOUT + 5)
 
         if not result or not result.content:
             return []

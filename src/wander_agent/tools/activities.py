@@ -10,7 +10,8 @@ _BAD_NAME_KEYWORDS = frozenset({
     "hospital", "clinic", "pharmacy", "police station", "fire station",
     "elementary school", "junior high", "high school", "primary school",
     "art college", "university hospital", "katsura hospital",
-    "city hall", "ward office", "government office",
+    "city hall", "town hall", "ward office", "government office",
+    "canton of", "mairie",
 })
 
 _ADMIN_DESC_KEYWORDS = frozenset({
@@ -19,6 +20,10 @@ _ADMIN_DESC_KEYWORDS = frozenset({
     "prefecture", "ward", "neighbourhood", "neighborhood", "suburb",
     "administrative", "populated place", "human settlement",
     "urban district", "rural district", "local government",
+    "canton", "department of", "region of", "state of",
+    "census-designated", "unincorporated",
+    "town located", "town in", "village in", "city in",
+    "quarter of", "neighborhood of", "area of",
     # Transport infrastructure
     "railway station", "train station", "metro station", "subway station",
     "bus station", "bus stop", "tram stop", "airport", "ferry terminal",
@@ -30,6 +35,9 @@ _ADMIN_DESC_KEYWORDS = frozenset({
     "river in", "stream in", "canal in", "lake in",
     # Other non-tourist
     "post office", "fire station", "police station", "hospital in",
+    "town hall", "city hall", "government building",
+    # Generic Wikidata noise
+    "wikimedia", "category", "template", "stub",
 })
 
 CATEGORIES = {
@@ -76,6 +84,9 @@ async def search_activities(
     if category and category.lower() in CATEGORIES:
         qid = CATEGORIES[category.lower()]
         kind_filter = f"?item wdt:P31/wdt:P279* wd:{qid} ."
+    else:
+        # No SPARQL type filter — Python-side _ADMIN_DESC_KEYWORDS handles junk
+        kind_filter = ""
 
     sparql = f"""
     SELECT ?item ?itemLabel ?coord ?desc WHERE {{
@@ -116,10 +127,14 @@ async def search_activities(
                 if resp2.status_code == 200:
                     bindings = resp2.json().get("results", {}).get("bindings", [])
             results = []
+            seen_names: set[str] = set()
             for b in bindings:
                 name = b.get("itemLabel", {}).get("value", "")
                 if not name or name.startswith("Q"):
                     continue
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
                 desc = b.get("desc", {}).get("value", "")
                 # Skip administrative divisions (municipalities, parishes, etc.)
                 desc_lower = desc.lower()

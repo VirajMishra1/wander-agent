@@ -48,6 +48,25 @@ async def _parse_flight_time(time_str: str, base_date: str) -> str:
     return time_str  # Keep raw — LLM handles natural language fine
 
 
+def _patch_fast_flights_impersonate():
+    """Patch fast_flights to use chrome_146 (primp 1.3+ dropped chrome_126)."""
+    try:
+        import fast_flights.core as _core
+        from fast_flights.primp import Client, Response
+
+        def _patched_fetch(params: dict) -> Response:
+            client = Client(impersonate="chrome_146", verify=False)
+            res = client.get("https://www.google.com/travel/flights", params=params)
+            assert res.status_code == 200, f"{res.status_code} Result: {res.text_markdown}"
+            return res
+
+        _core.fetch = _patched_fetch
+    except Exception:
+        pass
+
+_patch_fast_flights_impersonate()
+
+
 async def _search_fast_flights(
     origin: str, destination: str, departure_date: str, return_date: str | None,
     adults: int, max_results: int, currency: str, nonstop_only: bool,
@@ -63,7 +82,6 @@ async def _search_fast_flights(
         flight_data.append(FlightData(date=return_date, from_airport=destination.upper(), to_airport=origin.upper()))
         trip = "round-trip"
 
-    # fast_flights is sync; run in thread to avoid blocking
     def _run(mode: str):
         return get_flights(
             flight_data=flight_data,
@@ -73,24 +91,30 @@ async def _search_fast_flights(
             fetch_mode=mode,
         )
 
-    # Try common first, then fallback. Google sometimes serves stripped HTML
-    # with empty airline names; retry handles that.
     result = None
+    prices_only_result = None
     for mode in ("common", "fallback"):
         try:
-            result = await asyncio.to_thread(_run, mode)
-        except Exception:
+            candidate = await asyncio.wait_for(asyncio.to_thread(_run, mode), timeout=15.0)
+        except (asyncio.TimeoutError, Exception):
             continue
-        flights_attr = getattr(result, "flights", []) or []
-        has_data = any(str(getattr(f, "name", "")).strip() for f in flights_attr[:5])
-        if flights_attr and has_data:
+        flights_attr = getattr(candidate, "flights", []) or []
+        has_names = any(str(getattr(f, "name", "")).strip() for f in flights_attr[:5])
+        if flights_attr and has_names:
+            result = candidate
             break
-        result = None
+        # Google sometimes returns prices without airline names — keep as fallback
+        has_prices = any(str(getattr(f, "price", "")).strip() for f in flights_attr[:5])
+        if flights_attr and has_prices and not prices_only_result:
+            prices_only_result = candidate
 
+    if not result:
+        result = prices_only_result
     if not result:
         return None
     raw_flights = getattr(result, "flights", []) or []
-    raw_flights = [f for f in raw_flights if str(getattr(f, "name", "")).strip()]
+    # Accept flights with names OR prices (price-only when Google strips names)
+    raw_flights = [f for f in raw_flights if str(getattr(f, "name", "")).strip() or str(getattr(f, "price", "")).strip()]
     if not raw_flights:
         return None
 
@@ -106,10 +130,10 @@ async def _search_fast_flights(
         amount, native_curr = _parse_price(price_raw)
         if amount == 0:
             continue
-        airline = getattr(f, "name", "")
-        departure = getattr(f, "departure", "")
-        arrival = getattr(f, "arrival", "")
-        # Dedupe by (airline, departure, arrival, price)
+        airline = getattr(f, "name", "") or ""
+        departure = getattr(f, "departure", "") or ""
+        arrival = getattr(f, "arrival", "") or ""
+        # Dedupe: when names are empty, dedupe on price alone (avoid 265 identical rows)
         dedup_key = (airline, departure, arrival, round(amount, 2))
         if dedup_key in seen_keys:
             continue

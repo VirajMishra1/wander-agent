@@ -129,8 +129,7 @@ async def search_restaurants_bars(
     try:
         resp = await client.post(
             "https://overpass-api.de/api/interpreter",
-            content=overpass_q,
-            headers={"Content-Type": "text/plain"},
+            data={"data": overpass_q},
             timeout=20.0,
         )
         if resp.status_code == 200:

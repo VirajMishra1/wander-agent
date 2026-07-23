@@ -87,8 +87,7 @@ async def find_places(
     try:
         resp = await client.post(
             "https://overpass-api.de/api/interpreter",
-            content=query,
-            headers={"Content-Type": "text/plain"},
+            data={"data": query},
             timeout=20.0,
         )
         if resp.status_code == 200:
