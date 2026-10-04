@@ -21,7 +21,7 @@ async def generate_packing_list(
         activities: Comma-separated: beach, hiking, business, nightlife, skiing, sightseeing, camping
         budget_level: budget, moderate, luxury
         travelers: Number of travelers
-        latitude: Optional — fetches live weather if provided
+        latitude: Optional — geocoded from destination if omitted
         longitude: Optional
     """
     from datetime import datetime
@@ -29,7 +29,14 @@ async def generate_packing_list(
     ret = datetime.strptime(end_date, "%Y-%m-%d")
     nights = max((ret - dep).days, 1)
 
-    # Get weather if coords available
+    if not (latitude and longitude):
+        try:
+            from .destination import geocode
+            geo = await geocode(destination)
+            latitude, longitude = geo.get("latitude"), geo.get("longitude")
+        except Exception:
+            pass
+
     avg_temp_c = None
     rainy = False
     if latitude and longitude:

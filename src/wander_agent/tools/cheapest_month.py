@@ -104,14 +104,20 @@ async def find_cheapest_month(
                     (dep + timedelta(days=trip_length_days)).isoformat()
                     if trip_type == "round_trip" else None
                 )
-                result = await search_flights(
-                    origin=origin, destination=destination,
-                    departure_date=dep.isoformat(),
-                    return_date=ret,
-                    adults=adults, max_results=1,
-                    currency=currency,
-                )
-                price = result.get("cheapest_price")
+                price = None
+                for attempt in range(2):  # Google occasionally returns nothing under load; one retry
+                    if attempt:
+                        await asyncio.sleep(2)
+                    result = await search_flights(
+                        origin=origin, destination=destination,
+                        departure_date=dep.isoformat(),
+                        return_date=ret,
+                        adults=adults, max_results=1,
+                        currency=currency,
+                    )
+                    price = result.get("cheapest_price")
+                    if price:
+                        break
                 if not price:
                     return None
                 return {

@@ -102,3 +102,27 @@ async def test_kiwi_circuit_breaker_skips_after_repeated_failures(monkeypatch):
         kc._record_failure()
 
     assert await kc.search_kiwi_flights("JFK", "LHR", "2026-12-10") == []
+
+
+@pytest.mark.asyncio
+async def test_packing_list_geocodes_destination_for_weather(monkeypatch):
+    import wander_agent.tools.destination as dest
+    import wander_agent.tools.weather as weather
+    from wander_agent.tools.packing import generate_packing_list
+
+    seen = {}
+
+    async def fake_geocode(name):
+        seen["geocoded"] = name
+        return {"latitude": 38.7, "longitude": -9.1}
+
+    async def fake_weather(lat, lon, start, end):
+        seen["coords"] = (lat, lon)
+        return {"summary": {"avg_high_c": 30, "rainy_days": 0, "total_days": 3}}
+
+    monkeypatch.setattr(dest, "geocode", fake_geocode)
+    monkeypatch.setattr(weather, "get_weather", fake_weather)
+    result = await generate_packing_list("Lisbon", "2026-12-10", "2026-12-13", activities=None)
+
+    assert seen == {"geocoded": "Lisbon", "coords": (38.7, -9.1)}
+    assert result["weather"]["avg_high_c"] == 30
