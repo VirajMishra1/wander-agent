@@ -24,7 +24,7 @@ Look for issues labeled [`good first issue`](https://github.com/VirajMishra1/wan
 
 1. Branch from `main`.
 2. Keep the change focused — one logical change per PR.
-3. `pytest` passes locally (CI runs Python 3.10–3.12 + a 66-tool gate).
+3. `pytest` passes locally (CI runs Python 3.10–3.12 + a 75-tool gate).
 4. Match the existing code style — no new dependencies unless discussed.
 5. Every tool must still work **without API keys** (fallbacks required).
 6. Describe what changed and why in the PR body.
