@@ -6,11 +6,15 @@ Skip in CI with: pytest -m "not smoke"
 from __future__ import annotations
 
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+# Always ~2 months out so the search date never goes stale
+DEPART = (date.today() + timedelta(days=60)).isoformat()
 
 
 @pytest.mark.smoke
@@ -19,7 +23,7 @@ async def test_google_flights_returns_data():
     from wander_agent.tools.flights import _search_fast_flights
 
     result = await _search_fast_flights(
-        "JFK", "CDG", "2026-08-15", None, 1, 5, "USD", False,
+        "JFK", "CDG", DEPART, None, 1, 5, "USD", False,
     )
     assert result is not None, "Google Flights returned None — scraper may be broken"
     flights = result.get("flights", [])
@@ -33,7 +37,7 @@ async def test_google_flights_has_airline_names():
     from wander_agent.tools.flights import _search_fast_flights
 
     result = await _search_fast_flights(
-        "JFK", "CDG", "2026-08-15", None, 1, 5, "USD", False,
+        "JFK", "CDG", DEPART, None, 1, 5, "USD", False,
     )
     if result is None:
         pytest.skip("Scraper returned None")

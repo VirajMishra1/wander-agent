@@ -28,9 +28,13 @@ def _ensure() -> None:
 def load_watches() -> list[dict]:
     _ensure()
     try:
-        return json.loads(_STORE.read_text())
+        data = json.loads(_STORE.read_text())
     except (json.JSONDecodeError, OSError):
         return []
+    # Older files were written as {"schema_version": 1, "watches": [...]}
+    if isinstance(data, dict):
+        data = data.get("watches", [])
+    return data if isinstance(data, list) else []
 
 
 def _save(watches: list[dict]) -> None:

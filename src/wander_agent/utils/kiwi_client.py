@@ -8,10 +8,26 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from datetime import datetime
 
 _KIWI_URL = "https://mcp.kiwi.com"
-_TIMEOUT = 20  # seconds
+_TIMEOUT = 12  # seconds
+
+# Circuit breaker: when Kiwi is down every call burns the full timeout, which
+# multiplies across the batch tools. After repeated failures, skip it for a while.
+_MAX_FAILURES = 2
+_COOLDOWN = 600  # seconds
+_failures = 0
+_skip_until = 0.0
+
+
+def _record_failure() -> None:
+    global _failures, _skip_until
+    _failures += 1
+    if _failures >= _MAX_FAILURES:
+        _skip_until = time.monotonic() + _COOLDOWN
+        _failures = 0
 
 
 def _ymd_to_dmy(date_str: str) -> str:
@@ -35,6 +51,9 @@ async def search_kiwi_flights(
     nonstop_only: bool = False,
 ) -> list[dict]:
     """Return normalized Kiwi flight results. Returns [] on any failure."""
+    global _failures
+    if time.monotonic() < _skip_until:
+        return []
     try:
         from mcp.client.sse import sse_client
         from mcp import ClientSession
@@ -59,7 +78,12 @@ async def search_kiwi_flights(
                     await session.initialize()
                     return await session.call_tool("search-flight", params)
 
-        result = await asyncio.wait_for(_do_kiwi(), timeout=_TIMEOUT + 5)
+        try:
+            result = await asyncio.wait_for(_do_kiwi(), timeout=_TIMEOUT + 3)
+        except Exception:
+            _record_failure()
+            return []
+        _failures = 0
 
         if not result or not result.content:
             return []

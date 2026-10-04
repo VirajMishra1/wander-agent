@@ -36,9 +36,13 @@ def _ensure() -> None:
 def load_trips() -> list[dict]:
     _ensure()
     try:
-        return json.loads(_STORE.read_text())
+        data = json.loads(_STORE.read_text())
     except (json.JSONDecodeError, OSError):
         return []
+    # Older files were written as {"schema_version": 1, "trips": [...]}
+    if isinstance(data, dict):
+        data = data.get("trips", [])
+    return data if isinstance(data, list) else []
 
 
 def _save(trips: list[dict]) -> None:

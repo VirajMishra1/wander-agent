@@ -202,6 +202,19 @@ async def calculate_points_or_cash(
     return result
 
 
+_CATEGORY_ALIASES = {
+    "dining": ("restaurants",),
+    "restaurant": ("restaurants",),
+    "food": ("restaurants",),
+    "groceries": ("supermarkets",),
+    "grocery": ("supermarkets",),
+    "flight": ("flights",),
+    "airfare": ("flights",),
+    "hotel": ("hotels",),
+    "lodging": ("hotels",),
+}
+
+
 async def estimate_points_earning(
     amount: float,
     card_key: str,
@@ -218,10 +231,11 @@ async def estimate_points_earning(
     matched_category = "base"
 
     cat_key = category.lower().replace(" ", "_")
-    for ck_name, cv in card["bonus_categories"].items():
-        if cat_key in ck_name or ck_name in cat_key:
-            multiplier = cv
-            matched_category = ck_name
+    candidates = [cat_key, *_CATEGORY_ALIASES.get(cat_key, ())]
+    for cand in candidates:
+        hit = next(((k, v) for k, v in card["bonus_categories"].items() if cand in k or k in cand), None)
+        if hit:
+            matched_category, multiplier = hit
             break
 
     points_earned = int(amount * multiplier)

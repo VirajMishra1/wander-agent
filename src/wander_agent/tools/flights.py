@@ -80,6 +80,13 @@ def _patch_fast_flights_impersonate():
 
 _patch_fast_flights_impersonate()
 
+_scrape_sems: dict[int, asyncio.Semaphore] = {}
+
+
+def _scrape_sem() -> asyncio.Semaphore:
+    """Per-event-loop cap on concurrent Google scrapes (batch tools fan out dozens)."""
+    return _scrape_sems.setdefault(id(asyncio.get_running_loop()), asyncio.Semaphore(6))
+
 
 async def _search_fast_flights(
     origin: str, destination: str, departure_date: str, return_date: str | None,
@@ -109,7 +116,9 @@ async def _search_fast_flights(
     prices_only_result = None
     for mode in ("common", "fallback"):
         try:
-            candidate = await asyncio.wait_for(asyncio.to_thread(_run, mode), timeout=15.0)
+            # Acquire before starting the timer so queueing behind other scrapes isn't counted as a timeout
+            async with _scrape_sem():
+                candidate = await asyncio.wait_for(asyncio.to_thread(_run, mode), timeout=15.0)
         except (asyncio.TimeoutError, Exception):
             continue
         flights_attr = getattr(candidate, "flights", []) or []

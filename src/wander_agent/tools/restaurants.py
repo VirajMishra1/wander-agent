@@ -125,15 +125,13 @@ async def search_restaurants_bars(
         f"out body center {max_results * 6};\n"
     )
 
+    from ..utils.overpass import overpass_elements
+
     places: list[dict] = []
+    elements, osm_error = await overpass_elements(client, overpass_q)
     try:
-        resp = await client.post(
-            "https://overpass-api.de/api/interpreter",
-            data={"data": overpass_q},
-            timeout=20.0,
-        )
-        if resp.status_code == 200:
-            for el in resp.json().get("elements", []):
+        if elements:
+            for el in elements:
                 tags = el.get("tags", {})
                 name = tags.get("name", "").strip()
                 if not name:
@@ -274,6 +272,8 @@ async def search_restaurants_bars(
         "cuisine_filter": cuisine,
         "radius_m": radius_m,
         "results_count": len(places),
+        **({"warning": f"OpenStreetMap lookup failed ({osm_error}) — retry shortly or use the suggest_web_search queries."}
+           if osm_error and not places else {}),
         "sorted_by": "rating then distance" if has_ratings else "distance",
         "places": places,
         "highlights": {

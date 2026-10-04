@@ -178,7 +178,7 @@ async def find_open_jaw(
     ))
     ground_t = asyncio.create_task(search_ground_transport(
         origin_city=in_city, destination_city=out_city,
-        departure_date=outbound_date, passengers=adults, currency=currency,
+        date=outbound_date, travelers=adults,
     ))
     baseline_t = asyncio.create_task(search_flights(
         origin=origin_iata, destination=in_iata,

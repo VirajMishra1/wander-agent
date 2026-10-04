@@ -83,15 +83,13 @@ async def find_places(
     query = _build_overpass(tags, radius_m, latitude, longitude, max_results * 5,
                              require_name=cat not in _NO_NAME_FILTER)
 
+    from ..utils.overpass import overpass_elements
+
     places = []
+    elements, osm_error = await overpass_elements(client, query)
     try:
-        resp = await client.post(
-            "https://overpass-api.de/api/interpreter",
-            data={"data": query},
-            timeout=20.0,
-        )
-        if resp.status_code == 200:
-            for el in resp.json().get("elements", []):
+        if elements:
+            for el in elements:
                 t = el.get("tags", {})
                 name = t.get("name", "").strip()
                 if not name:
@@ -167,6 +165,8 @@ async def find_places(
         "category": cat,
         "radius_km": radius_km,
         "results_count": len(places),
+        **({"warning": f"OpenStreetMap lookup failed ({osm_error}) — retry shortly or use the suggest_web_search queries."}
+           if osm_error and not places else {}),
         "places": places,
         "closest": places[0]["name"] if places else None,
         "tip": tips,

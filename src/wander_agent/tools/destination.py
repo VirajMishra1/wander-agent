@@ -6,52 +6,42 @@ from __future__ import annotations
 async def get_destination_info(country_name: str) -> dict:
     """Get essential travel info for a country.
 
-    Currency, languages, timezone, calling code, visa-free travel info.
+    Currency, languages, timezone, calling code, driving side, borders.
+    Offline dataset plus a live Open-Meteo lookup for the capital's timezone.
     No API key required.
 
     Args:
-        country_name: Country name in English (e.g., "Japan", "France")
+        country_name: Country name in English (e.g., "Japan", "France") or ISO code
     """
-    from ..utils.http import get_client
+    from ..utils.countries import LEFT_DRIVING, find_country
 
-    client = await get_client()
-    resp = await client.get(
-        f"https://restcountries.com/v3.1/name/{country_name}",
-        params={"fields": "name,currencies,languages,timezones,capital,population,region,subregion,flags,cca2,idd,car,maps,borders"},
-    )
+    c = find_country(country_name)
+    if not c:
+        return {"error": f"Country '{country_name}' not found. Use full English name or ISO code."}
 
-    if resp.status_code == 404:
-        return {"error": f"Country '{country_name}' not found. Use full English name."}
-
-    resp.raise_for_status()
-    countries = resp.json()
-    if not countries:
-        return {"error": f"No results for '{country_name}'"}
-
-    c = countries[0]
-    currencies = c.get("currencies", {})
-    languages = c.get("languages", {})
+    timezones: list[str] = []
+    if c["capital"]:
+        try:
+            geo = await geocode(f"{c['capital']}, {c['cca2']}")
+            if geo.get("timezone"):
+                timezones = [geo["timezone"]]
+        except Exception:
+            pass
 
     return {
-        "name": c.get("name", {}).get("common", country_name),
-        "official_name": c.get("name", {}).get("official", ""),
-        "country_code": c.get("cca2", ""),
-        "capital": (c.get("capital") or [None])[0],
-        "region": c.get("region", ""),
-        "subregion": c.get("subregion", ""),
-        "population": c.get("population"),
-        "currencies": [
-            {"code": code, "name": info.get("name", ""), "symbol": info.get("symbol", "")}
-            for code, info in currencies.items()
-        ],
-        "languages": list(languages.values()),
-        "timezones": c.get("timezones", []),
-        "calling_code": (c.get("idd", {}).get("root", "") +
-                         (c.get("idd", {}).get("suffixes", [""])[0] if c.get("idd", {}).get("suffixes") else "")),
-        "drives_on": c.get("car", {}).get("side", ""),
-        "border_countries": c.get("borders", []),
-        "google_maps_url": c.get("maps", {}).get("googleMaps", ""),
-        "flag_url": c.get("flags", {}).get("png", ""),
+        "name": c["name"],
+        "official_name": c["official"],
+        "country_code": c["cca2"],
+        "capital": c["capital"],
+        "region": c["region"],
+        "subregion": c["subregion"],
+        "currencies": c["currencies"],
+        "languages": c["languages"],
+        "timezones": timezones,
+        "calling_code": c["calling_code"],
+        "drives_on": "left" if c["cca2"] in LEFT_DRIVING else "right",
+        "border_countries": c["borders"],
+        "data_confidence": "curated_snapshot",
     }
 
 

@@ -83,9 +83,10 @@ async def _scrape_eventbrite(
                 if not name or not url_ev:
                     continue
 
-                # Filter out events clearly outside the trip window
-                # (loose: only drop if more than 7 days before start or after end)
+                # Drop events that end before the trip starts or start after it ends
                 if start and end_date and start[:10] > end_date[:10]:
+                    continue
+                if start_date and (end_ev or start)[:10] < start_date[:10]:
                     continue
 
                 events.append({

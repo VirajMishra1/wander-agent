@@ -44,7 +44,7 @@ async def generate_packing_list(
         except Exception:
             pass
 
-    acts = {a.strip().lower() for a in activities.split(",") if a.strip()}
+    acts = {a.strip().lower() for a in (activities or "").split(",") if a.strip()}
 
     # Temperature categories
     cold = avg_temp_c is not None and avg_temp_c < 12

@@ -60,8 +60,12 @@ async def _fetch_advisories() -> dict:
             clean = re.sub(r"\s+", " ", unescape(clean)).strip()
             desc_text = clean[:1500]
 
+        from ..utils.countries import find_country
+
         entry = {
             "country": country_name,
+            "iso2": (find_country(country_name) or {}).get("cca2", ""),
+            # State Dept tags use FIPS codes (e.g. "JA" for Japan), not ISO
             "country_code": country_tag.group(1).split(",")[0] if country_tag else "",
             "advisory_level": level_num,
             "advisory_label": level_text,
@@ -140,6 +144,7 @@ async def get_travel_advisory(country: str) -> dict:
         return {
             "country": country_name,
             "country_code": entry["country_code"],
+            "iso2": entry.get("iso2", ""),
             "advisory_level": entry["advisory_level"],
             "advisory_label": entry["advisory_label"],
             "risk_description": risk_descriptors.get(entry["advisory_level"], "Unknown"),
