@@ -72,10 +72,10 @@ async def verify_place(
         sparql_query = f"""
         SELECT ?item ?itemLabel ?coord ?desc WHERE {{
           ?item rdfs:label "{safe_name}"@en .
-          OPTIONAL {{ ?item wdt:P625 ?coord . }}
+          ?item wdt:P625 ?coord .
           OPTIONAL {{ ?item schema:description ?desc . FILTER(LANG(?desc) = "en") }}
           SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
-        }} LIMIT 25
+        }} LIMIT 100
         """
         wd_resp = await client.get(
             "https://query.wikidata.org/sparql",
