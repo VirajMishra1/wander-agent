@@ -239,7 +239,7 @@ STOPOVERS: dict[str, dict] = {
 async def get_stopover_guide(
     airport: str,
     layover_hours: float,
-    passport_country: str = "US",
+    passport_country: str | None = None,
 ) -> dict:
     """Get a layover guide for a major hub airport.
 
@@ -285,11 +285,14 @@ async def get_stopover_guide(
                 recommended_excursion = duration_str
 
     # Visa check
-    visa_ok = passport_country.upper() in [p.upper() for p in data.get("visa_free_transit", [])]
-    visa_note = (
-        "✅ Transit without visa likely — verify with airline." if visa_ok
-        else f"⚠️ Check transit visa requirements for {passport_country} passport at {code}."
-    )
+    visa_ok = None
+    visa_note = "No passport given — visa check skipped."
+    if passport_country:
+        visa_ok = passport_country.upper() in [p.upper() for p in data.get("visa_free_transit", [])]
+        visa_note = (
+            "✅ Transit without visa likely — verify with airline." if visa_ok
+            else f"⚠️ Check transit visa requirements for {passport_country} passport at {code}."
+        )
 
     go_to_city = usable_hours >= 4 and bool(city_excursions)
 
