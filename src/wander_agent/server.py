@@ -59,6 +59,14 @@ from .tools.places import find_places
 from .tools.jetlag import calculate_jet_lag
 from .tools.phrasebook import get_language_phrasebook
 from .tools.stopover import get_stopover_guide
+from .tools.country_info import get_country_facts
+from .tools.timezone_tools import convert_timezone, get_sunrise_sunset
+from .tools.local_customs import get_cultural_etiquette, get_outlet_info, get_tipping_guide
+from .tools.safety_tools import (
+    find_nearby_hospitals,
+    get_emergency_contacts,
+    get_solo_travel_safety,
+)
 from .tools.travel_news import get_travel_news
 from .tools.health import check_travel_health
 
@@ -1454,6 +1462,119 @@ async def tool_get_local_sim_guide(
         data_heavy: True if you stream video, work remotely, or need constant hotspot
     """
     return await get_local_sim_guide(country, trip_duration_days, data_heavy)
+
+
+@mcp.tool()
+async def tool_get_country_facts(country: str) -> dict:
+    """Key facts about a country: capital, languages, population, currency,
+    timezones, calling code, borders. Live data from RestCountries.
+
+    Args:
+        country: Country name or ISO 2/3-letter code (e.g., "Japan", "JP", "JPN")
+    """
+    return await get_country_facts(country)
+
+
+@mcp.tool()
+async def tool_convert_timezone(
+    datetime_str: str,
+    from_timezone: str,
+    to_timezone: str,
+) -> dict:
+    """Convert a date/time between IANA timezones, DST-aware.
+
+    Args:
+        datetime_str: e.g. "2026-08-15 14:30" or "2026-08-15T14:30:00"
+        from_timezone: IANA name, e.g. "America/New_York"
+        to_timezone: IANA name, e.g. "Asia/Tokyo" or "UTC"
+    """
+    return await convert_timezone(datetime_str, from_timezone, to_timezone)
+
+
+@mcp.tool()
+async def tool_get_sunrise_sunset(
+    latitude: float,
+    longitude: float,
+    date: str = "today",
+) -> dict:
+    """Sunrise, sunset, solar noon, twilight and day length for a location (UTC times).
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+        date: YYYY-MM-DD or "today"
+    """
+    return await get_sunrise_sunset(latitude, longitude, date)
+
+
+@mcp.tool()
+async def tool_get_tipping_guide(country_iso2: str) -> dict:
+    """Tipping customs and expected amounts (restaurants, taxis, hotels, bars). Curated snapshot.
+
+    Args:
+        country_iso2: ISO 2-letter code (e.g., "US", "JP", "TH")
+    """
+    return get_tipping_guide(country_iso2)
+
+
+@mcp.tool()
+async def tool_get_cultural_etiquette(country_iso2: str) -> dict:
+    """Cultural dos/don'ts, dress code, greetings, photography rules. Curated snapshot.
+
+    Args:
+        country_iso2: ISO 2-letter code (e.g., "JP", "IN", "TH")
+    """
+    return get_cultural_etiquette(country_iso2)
+
+
+@mcp.tool()
+async def tool_get_outlet_info(country_iso2: str) -> dict:
+    """Electrical plug types, voltage, frequency and whether an adapter is needed. Curated snapshot.
+
+    Args:
+        country_iso2: ISO 2-letter code (e.g., "US", "JP", "AU")
+    """
+    return get_outlet_info(country_iso2)
+
+
+@mcp.tool()
+async def tool_get_emergency_contacts(country_iso2: str) -> dict:
+    """Emergency numbers (police, ambulance, fire, tourist police) for a country. Curated snapshot.
+
+    Args:
+        country_iso2: ISO 2-letter code (e.g., "TH", "JP", "FR")
+    """
+    return get_emergency_contacts(country_iso2)
+
+
+@mcp.tool()
+async def tool_find_nearby_hospitals(
+    latitude: float,
+    longitude: float,
+    radius_km: int = 10,
+    max_results: int = 8,
+    city: str | None = None,
+) -> dict:
+    """Find hospitals and clinics near a location via OpenStreetMap.
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+        radius_km: Search radius in km (1-30)
+        max_results: Max results (1-20)
+        city: Optional city name hint
+    """
+    return await find_nearby_hospitals(latitude, longitude, radius_km, max_results, city)
+
+
+@mcp.tool()
+async def tool_get_solo_travel_safety(country_iso2: str) -> dict:
+    """Solo travel safety: risk level, female/male solo notes, top risks, safe areas, transport tips. Curated snapshot.
+
+    Args:
+        country_iso2: ISO 2-letter code (e.g., "TH", "IN", "ZA")
+    """
+    return get_solo_travel_safety(country_iso2)
 
 
 # ============================================================

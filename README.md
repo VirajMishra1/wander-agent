@@ -3,7 +3,7 @@
 # 🌍 Wander Agent
 
 ### Your AI's personal travel agent — flights, hotels, visas, points & miles.
-**66 tools. Zero API keys. One line to install.**
+**75 tools. Zero API keys. One line to install.**
 
 Ask your AI anything about travel and get **real data back, not hallucinations** — live flight prices, the cheap fares airlines hide, real visa rules, 16-day forecasts, and credit-card points sweet spots.
 
@@ -391,7 +391,7 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 
 ---
 
-## All 66 Tools
+## All 75 Tools
 
 ### ✈️ Flights
 
@@ -483,6 +483,15 @@ Or add them to your shell profile (`~/.zshrc`, `~/.bashrc`) to make them permane
 | `check_travel_health` | Required and recommended vaccines, water safety, food safety, mosquito risk, altitude risk, and a pre-trip preparation timeline. Based on CDC and WHO 2024–2025 data. |
 | `search_ground_transport` | Bus, train, and ferry options with booking links. Region-aware: Amtrak and Greyhound for the US, Trainline and BlaBlaCar for Europe, IRCTC for India, 12Go for Southeast Asia. |
 | `get_local_sim_guide` | Best prepaid SIM card and eSIM for 25+ countries. Returns operator, cost, data allowance, where to buy, tethering policy, and duration-based advice (≤3 days → eSIM; longer → local SIM). Falls back to Airalo/Holafly for unlisted countries. |
+| `get_country_facts` | Capital, languages, population, currency, timezones, calling code, borders. Live from RestCountries. |
+| `convert_timezone` | DST-aware conversion between IANA timezones. |
+| `get_sunrise_sunset` | Sunrise, sunset, twilight and day length for any coordinates and date (UTC). |
+| `get_tipping_guide` | Tipping customs and amounts by country. |
+| `get_cultural_etiquette` | Dos, don'ts, dress code, greetings, photography rules. |
+| `get_outlet_info` | Plug types, voltage, and whether you need an adapter. |
+| `get_emergency_contacts` | Police, ambulance, fire and tourist-police numbers. |
+| `find_nearby_hospitals` | Hospitals and clinics near coordinates via OpenStreetMap. |
+| `get_solo_travel_safety` | Solo travel risk level, top risks, safe areas, transport tips. |
 
 ### 🏛️ Attractions & Info
 
